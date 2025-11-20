@@ -1,22 +1,15 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { memberList } from '../utils/mock/member-list/memberList'
-import type { Member } from '../utils/interface/MemberInterface'
 
 export default function Home() {
   const [genID, setGenID] = useState('')
-  const [matchedMember, setMatchedMember] = useState<Member | null>(null)
   const navigate = useNavigate()
 
-  // Auto-map genID to member
-  useEffect(() => {
-    if (genID.trim()) {
-      const member = memberList.find(m => m.genID === genID.trim())
-      setMatchedMember(member || null)
-    } else {
-      setMatchedMember(null)
-    }
-  }, [genID])
+  // Auto-map genID to member (calculated directly during render)
+  const matchedMember = genID.trim()
+    ? memberList.find(m => m.genID === genID.trim()) || null
+    : null
 
   const handleHostRoom = () => {
     if (matchedMember) {
@@ -103,16 +96,8 @@ export default function Home() {
             </button>
           </div>
         </div>
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background">
-      <div className="text-center space-y-6 p-8">
-        <h1 className="text-6xl font-bold bg-linear-to-r from-blue-500 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent mb-4">
-          Welcome to Spin
-        </h1>
-        <p className="text-xl text-foreground/70 mb-8">
-          A React + Vite + TypeScript + Tailwind CSS starter
-        </p>
-
       </div>
     </div>
   )
 }
+
