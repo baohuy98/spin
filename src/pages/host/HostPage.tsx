@@ -24,8 +24,6 @@ export default function HostPage() {
   const location = useLocation()
   const hostMember = (location.state as { member?: Member })?.member
 
-  // Generate local room ID immediately
-  const [localRoomId] = useState(() => `room-${Date.now()}`)
   const [roomMembers, setRoomMembers] = useState<Member[]>(() =>
     hostMember ? [{ ...hostMember, isHost: true }] : []
   )
@@ -48,19 +46,19 @@ export default function HostPage() {
 
   const videoRef = useRef<HTMLVideoElement>(null)
 
-  // Generate shareable room link
-  const getRoomLink = () => {
-    const currentRoomId = roomData?.roomId || localRoomId
-    return `${window.location.origin}/viewer?roomId=${currentRoomId}`
-  }
-
-  // Get current room ID (socket room ID or local fallback)
-  const getCurrentRoomId = () => {
-    return roomData?.roomId || localRoomId
-  }
-
   // Socket.io for room management
   const { socket, isConnected, roomData, createRoom, emitSpinResult } = useSocket()
+
+  // Generate shareable room link - relies on roomData from the socket
+  const getRoomLink = () => {
+    if (!roomData?.roomId) return ''
+    return `${window.location.origin}/viewer?roomId=${roomData.roomId}`
+  }
+
+  // Get current room ID from the socket state
+  const getCurrentRoomId = () => {
+    return roomData?.roomId || ''
+  }
 
   // WebRTC for screen sharing
   const { localStream, isSharing, error, startScreenShare, stopScreenShare } = useWebRTC({

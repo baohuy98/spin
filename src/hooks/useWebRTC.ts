@@ -13,8 +13,13 @@ export function useWebRTC({ socket, roomId, isHost }: UseWebRTCOptions) {
   const [isSharing, setIsSharing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // For host: maintain multiple peer connections (one per viewer)
+  const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map())
+  // For viewer: single peer connection to host
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null)
   const localStreamRef = useRef<MediaStream | null>(null)
+  // Track viewers who joined before screen sharing started
+  const pendingViewersRef = useRef<Set<string>>(new Set())
 
   // WebRTC configuration
   const configuration: RTCConfiguration = {
@@ -30,23 +35,60 @@ export function useWebRTC({ socket, roomId, isHost }: UseWebRTCOptions) {
     // Listen for WebRTC signaling events
     socket.on('offer', async (data: { offer: RTCSessionDescriptionInit; from: string }) => {
       if (!isHost) {
+        console.log('Viewer received offer from:', data.from)
         await handleReceiveOffer(data.offer)
       }
     })
 
-    socket.on('answer', async (data: { answer: RTCSessionDescriptionInit }) => {
-      if (isHost && peerConnectionRef.current) {
-        await peerConnectionRef.current.setRemoteDescription(
-          new RTCSessionDescription(data.answer)
-        )
+    socket.on('answer', async (data: { answer: RTCSessionDescriptionInit; from: string }) => {
+      if (isHost) {
+        console.log('Host received answer from:', data.from)
+        const peerConnection = peerConnectionsRef.current.get(data.from)
+        if (peerConnection) {
+          await peerConnection.setRemoteDescription(
+            new RTCSessionDescription(data.answer)
+          )
+        }
       }
     })
 
-    socket.on('ice-candidate', async (data: { candidate: RTCIceCandidateInit }) => {
-      if (peerConnectionRef.current && data.candidate) {
-        await peerConnectionRef.current.addIceCandidate(
-          new RTCIceCandidate(data.candidate)
-        )
+    socket.on('ice-candidate', async (data: { candidate: RTCIceCandidateInit; from: string }) => {
+      console.log('Received ICE candidate from:', data.from)
+      if (isHost) {
+        const peerConnection = peerConnectionsRef.current.get(data.from)
+        if (peerConnection && data.candidate) {
+          await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate))
+        }
+      } else {
+        if (peerConnectionRef.current && data.candidate) {
+          await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(data.candidate))
+        }
+      }
+    })
+
+    // Listen for new viewer joining (host only)
+    socket.on('viewer-joined', async (data: { viewerId: string }) => {
+      if (isHost) {
+        console.log('New viewer joined:', data.viewerId)
+        if (localStreamRef.current) {
+          // Host is already sharing, create connection immediately
+          console.log('Host already sharing, creating peer connection for:', data.viewerId)
+          await createPeerConnectionForViewer(data.viewerId, localStreamRef.current)
+        } else {
+          // Host not sharing yet, add to pending viewers
+          console.log('Host not sharing yet, adding viewer to pending list:', data.viewerId)
+          pendingViewersRef.current.add(data.viewerId)
+        }
+      }
+    })
+
+    // Listen for stop sharing
+    socket.on('stop-sharing', () => {
+      console.log('Host stopped sharing')
+      setRemoteStream(null)
+      if (peerConnectionRef.current) {
+        peerConnectionRef.current.close()
+        peerConnectionRef.current = null
       }
     })
 
@@ -54,6 +96,8 @@ export function useWebRTC({ socket, roomId, isHost }: UseWebRTCOptions) {
       socket.off('offer')
       socket.off('answer')
       socket.off('ice-candidate')
+      socket.off('viewer-joined')
+      socket.off('stop-sharing')
     }
   }, [socket, roomId, isHost])
 
@@ -76,13 +120,26 @@ export function useWebRTC({ socket, roomId, isHost }: UseWebRTCOptions) {
       setIsSharing(true)
       setError(null)
 
+      console.log('Screen share started, stream tracks:', stream.getTracks())
+
       // Handle when user stops sharing via browser UI
       stream.getVideoTracks()[0].onended = () => {
         stopScreenShare()
       }
 
-      // Create peer connection and send offer
-      await createPeerConnection(stream)
+      // Create peer connections for all pending viewers
+      if (pendingViewersRef.current.size > 0) {
+        console.log('Creating peer connections for pending viewers:', Array.from(pendingViewersRef.current))
+        for (const viewerId of pendingViewersRef.current) {
+          await createPeerConnectionForViewer(viewerId, stream)
+        }
+        pendingViewersRef.current.clear()
+      }
+
+      // Notify backend that host is ready to share
+      if (socket && roomId) {
+        socket.emit('host-ready-to-share', { roomId })
+      }
     } catch (err) {
       console.error('Error starting screen share:', err)
       setError('Failed to start screen sharing')
@@ -97,12 +154,21 @@ export function useWebRTC({ socket, roomId, isHost }: UseWebRTCOptions) {
       setLocalStream(null)
     }
 
-    if (peerConnectionRef.current) {
-      peerConnectionRef.current.close()
-      peerConnectionRef.current = null
+    // Close all peer connections for host
+    if (isHost) {
+      peerConnectionsRef.current.forEach(pc => pc.close())
+      peerConnectionsRef.current.clear()
+    } else {
+      if (peerConnectionRef.current) {
+        peerConnectionRef.current.close()
+        peerConnectionRef.current = null
+      }
     }
 
     setIsSharing(false)
+
+    // Clear pending viewers
+    pendingViewersRef.current.clear()
 
     // Notify viewers that screen sharing has stopped
     if (socket && roomId) {
@@ -110,39 +176,61 @@ export function useWebRTC({ socket, roomId, isHost }: UseWebRTCOptions) {
     }
   }
 
-  const createPeerConnection = async (stream: MediaStream) => {
+  const createPeerConnectionForViewer = async (viewerId: string, stream: MediaStream) => {
     if (!socket || !roomId) return
 
+    console.log('Creating peer connection for viewer:', viewerId)
+
     const peerConnection = new RTCPeerConnection(configuration)
-    peerConnectionRef.current = peerConnection
+    peerConnectionsRef.current.set(viewerId, peerConnection)
 
     // Add tracks to peer connection
     stream.getTracks().forEach(track => {
+      console.log('Adding track to peer connection:', track.kind)
       peerConnection.addTrack(track, stream)
     })
 
     // Handle ICE candidates
     peerConnection.onicecandidate = (event) => {
       if (event.candidate && socket) {
+        console.log('Sending ICE candidate to viewer:', viewerId)
         socket.emit('ice-candidate', {
           roomId,
-          candidate: event.candidate.toJSON()
+          candidate: event.candidate.toJSON(),
+          to: viewerId
         })
       }
+    }
+
+    // Monitor connection state
+    peerConnection.onconnectionstatechange = () => {
+      console.log(`[HOST] Peer connection state with ${viewerId}:`, peerConnection.connectionState)
+      if (peerConnection.connectionState === 'failed') {
+        console.error(`[HOST] Connection failed with viewer ${viewerId}`)
+      }
+    }
+
+    // Monitor ICE connection state
+    peerConnection.oniceconnectionstatechange = () => {
+      console.log(`[HOST] ICE connection state with ${viewerId}:`, peerConnection.iceConnectionState)
     }
 
     // Create and send offer
     const offer = await peerConnection.createOffer()
     await peerConnection.setLocalDescription(offer)
 
+    console.log('Sending offer to viewer:', viewerId)
     socket.emit('offer', {
       roomId,
-      offer: offer
+      offer: offer,
+      to: viewerId
     })
   }
 
   const handleReceiveOffer = async (offer: RTCSessionDescriptionInit) => {
     if (!socket || !roomId) return
+
+    console.log('Viewer handling offer')
 
     const peerConnection = new RTCPeerConnection(configuration)
     peerConnectionRef.current = peerConnection
@@ -156,6 +244,7 @@ export function useWebRTC({ socket, roomId, isHost }: UseWebRTCOptions) {
     // Handle ICE candidates
     peerConnection.onicecandidate = (event) => {
       if (event.candidate && socket) {
+        console.log('Sending ICE candidate to host')
         socket.emit('ice-candidate', {
           roomId,
           candidate: event.candidate.toJSON()
@@ -163,10 +252,25 @@ export function useWebRTC({ socket, roomId, isHost }: UseWebRTCOptions) {
       }
     }
 
+    // Monitor connection state
+    peerConnection.onconnectionstatechange = () => {
+      console.log('[VIEWER] Peer connection state:', peerConnection.connectionState)
+      if (peerConnection.connectionState === 'failed') {
+        console.error('[VIEWER] Connection failed')
+        setError('WebRTC connection failed')
+      }
+    }
+
+    // Monitor ICE connection state
+    peerConnection.oniceconnectionstatechange = () => {
+      console.log('[VIEWER] ICE connection state:', peerConnection.iceConnectionState)
+    }
+
     await peerConnection.setRemoteDescription(new RTCSessionDescription(offer))
     const answer = await peerConnection.createAnswer()
     await peerConnection.setLocalDescription(answer)
 
+    console.log('Sending answer to host')
     socket.emit('answer', {
       roomId,
       answer: answer
@@ -179,11 +283,16 @@ export function useWebRTC({ socket, roomId, isHost }: UseWebRTCOptions) {
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach(track => track.stop())
       }
-      if (peerConnectionRef.current) {
-        peerConnectionRef.current.close()
+      if (isHost) {
+        peerConnectionsRef.current.forEach(pc => pc.close())
+        peerConnectionsRef.current.clear()
+      } else {
+        if (peerConnectionRef.current) {
+          peerConnectionRef.current.close()
+        }
       }
     }
-  }, [])
+  }, [isHost])
 
   return {
     localStream,
