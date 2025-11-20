@@ -1,6 +1,5 @@
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
 import Home from './pages/Home'
-import About from './pages/About'
 
 function App() {
   return (
@@ -14,16 +13,12 @@ function App() {
             <Link to="/" className="text-white hover:text-white/80 transition-colors">
               Home
             </Link>
-            <Link to="/about" className="text-white hover:text-white/80 transition-colors">
-              About
-            </Link>
           </div>
         </div>
       </nav>
 
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/about" element={<About />} />
       </Routes>
     </BrowserRouter>
   )
