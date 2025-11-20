@@ -1,5 +1,7 @@
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
 import Home from './pages/Home'
+import HostPage from './pages/host/HostPage'
+import ViewerPage from './pages/viewer/ViewerPage'
 
 function App() {
   return (
@@ -19,6 +21,8 @@ function App() {
 
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/host" element={<HostPage />} />
+        <Route path="/viewer" element={<ViewerPage />} />
       </Routes>
     </BrowserRouter>
   )
