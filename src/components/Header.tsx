@@ -1,5 +1,4 @@
-import { Button } from "../components/ui/button";
-import { Separator } from "../components/ui/separator";
+import { useTheme } from "@/components/ThemeProvider";
 import {
   Tooltip,
   TooltipContent,
@@ -7,16 +6,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  Maximize2,
-  Plus,
-  Download,
-  Share2,
-  Settings,
-  Sun,
   Moon,
-  User,
+  Share2,
+  Sun,
 } from "lucide-react";
-import { useTheme } from "@/components/ThemeProvider";
+import { Button } from "../components/ui/button";
 
 export function Header() {
   const { theme, setTheme } = useTheme();
@@ -40,38 +34,6 @@ export function Header() {
       {/* Action Icons Section */}
       <TooltipProvider>
         <div className="flex items-center gap-1">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <Maximize2 className="h-5 w-5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Fullscreen</p>
-            </TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <Plus className="h-5 w-5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Add New</p>
-            </TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <Download className="h-5 w-5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Download</p>
-            </TooltipContent>
-          </Tooltip>
 
           <Tooltip>
             <TooltipTrigger asChild>
@@ -81,19 +43,6 @@ export function Header() {
             </TooltipTrigger>
             <TooltipContent>
               <p>Share</p>
-            </TooltipContent>
-          </Tooltip>
-
-          <Separator orientation="vertical" className="h-6 mx-1" />
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <Settings className="h-5 w-5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Settings</p>
             </TooltipContent>
           </Tooltip>
 
@@ -112,16 +61,7 @@ export function Header() {
             </TooltipContent>
           </Tooltip>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <User className="h-5 w-5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Profile</p>
-            </TooltipContent>
-          </Tooltip>
+
         </div>
       </TooltipProvider>
     </header>

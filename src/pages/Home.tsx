@@ -4,6 +4,7 @@ import { memberList } from '../utils/mock/member-list/memberList'
 
 export default function Home() {
   const [genID, setGenID] = useState('')
+  const [roomID, setRoomID] = useState('')
   const navigate = useNavigate()
 
   // Auto-map genID to member (calculated directly during render)
@@ -20,11 +21,15 @@ export default function Home() {
   }
 
   const handleJoinRoom = () => {
-    if (matchedMember) {
-      navigate('/viewer', { state: { member: matchedMember } })
-    } else {
+    if (!matchedMember) {
       alert('Please enter a valid member ID')
+      return
     }
+    if (!roomID.trim()) {
+      alert('Please enter a room ID to join')
+      return
+    }
+    navigate(`/viewer?roomId=${roomID.trim()}`, { state: { member: matchedMember } })
   }
 
   return (
@@ -41,7 +46,7 @@ export default function Home() {
           {/* GenID Input */}
           <div className="space-y-2">
             <label htmlFor="genID" className="text-white font-semibold text-sm block">
-              Your ID
+              Your ID <span className="text-red-400">*</span>
             </label>
             <input
               id="genID"
@@ -50,6 +55,22 @@ export default function Home() {
               onChange={(e) => setGenID(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleHostRoom()}
               placeholder="Enter your ID (1-8)..."
+              className="w-full px-4 py-3 rounded-xl bg-white/20 text-white placeholder-white/60 border-2 border-white/30 focus:outline-none focus:border-white transition-colors"
+            />
+          </div>
+
+          {/* Room ID Input */}
+          <div className="space-y-2">
+            <label htmlFor="roomID" className="text-white font-semibold text-sm block">
+              Room ID <span className="text-white/60 text-xs">(for joining)</span>
+            </label>
+            <input
+              id="roomID"
+              type="text"
+              value={roomID}
+              onChange={(e) => setRoomID(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleJoinRoom()}
+              placeholder="Enter room ID to join..."
               className="w-full px-4 py-3 rounded-xl bg-white/20 text-white placeholder-white/60 border-2 border-white/30 focus:outline-none focus:border-white transition-colors"
             />
           </div>
