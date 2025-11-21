@@ -6,13 +6,61 @@ import ChatView from '../../components/ChatView'
 import { Alert, AlertDescription } from '../../components/ui/alert'
 import { useSocket } from '../../hooks/useSocket'
 import { useWebRTC } from '../../hooks/useWebRTC'
+import type { Member } from '../../utils/interface/MemberInterface'
+import { toast } from 'sonner'
 
 export default function ViewerPage() {
     const navigate = useNavigate()
     const [searchParams] = useSearchParams()
 
     const genID = searchParams.get('genId') || ''
-    const roomId = searchParams.get('roomId')
+
+    // Get member from location state (logged-in user data from Home.tsx)
+    const preSelectedMember = (location.state as { member?: Member })?.member
+
+    // Get roomId from URL query parameter, state, or sessionStorage
+    const [roomId, setRoomId] = useState<string>(() => {
+        const urlRoomId = searchParams.get('roomId')
+        const stateRoomId = (location.state as { roomId?: string })?.roomId
+        const savedRoomData = sessionStorage.getItem('roomData')
+        const sessionRoomId = savedRoomData ? JSON.parse(savedRoomData).roomId : ''
+        return urlRoomId || stateRoomId || sessionRoomId || ''
+    })
+
+    const [manualRoomId, setManualRoomId] = useState(roomId || '')
+
+    // Use the logged-in member data directly - no lookup in memberList
+    const [viewerMember, setViewerMember] = useState<Member | null>(() => {
+        // Try to restore from sessionStorage if available
+        const savedMember = sessionStorage.getItem('viewerMember')
+        if (savedMember) {
+            try {
+                return JSON.parse(savedMember)
+            } catch {
+                return preSelectedMember || null
+            }
+        }
+        return preSelectedMember || null
+    })
+
+    const [hasJoined, setHasJoined] = useState(false)
+
+    // Save viewer member to sessionStorage when it changes
+    useEffect(() => {
+        if (viewerMember) {
+            sessionStorage.setItem('viewerMember', JSON.stringify(viewerMember))
+        } else {
+            sessionStorage.removeItem('viewerMember')
+        }
+    }, [viewerMember])
+
+    // Redirect to home if not logged in
+    useEffect(() => {
+        if (!viewerMember) {
+            toast.error('Please login first to join a room')
+            setTimeout(() => navigate('/'), 1000)
+        }
+    }, [viewerMember, navigate])
 
     const [spinResult, setSpinResult] = useState<string | null>(null)
 
@@ -29,13 +77,13 @@ export default function ViewerPage() {
     })
 
     const connectedRoomID = roomData?.roomId;
-
-    // Auto-join room if roomId is provided in URL
     useEffect(() => {
-        if (isConnected && roomId && genID && !connectedRoomID) {
-            joinRoom(roomId, genID)
+        if (isConnected && roomId && viewerMember && !hasJoined) {
+            console.log('[ViewerPage] Auto-joining room:', roomId, 'with member:', viewerMember.genID, viewerMember.name)
+            joinRoom(roomId, viewerMember.genID, viewerMember.name)
+            setHasJoined(true)
         }
-    }, [isConnected, roomId, genID, connectedRoomID])
+    }, [isConnected, roomId, viewerMember, hasJoined, joinRoom])
 
     // Listen for spin results
     useEffect(() => {
@@ -46,13 +94,33 @@ export default function ViewerPage() {
         }
     }, [socket, onSpinResult]) // Added onSpinResult to dependency array for correctness
 
+    // Listen for host reconnection (when host reloads page)
+    useEffect(() => {
+        if (socket) {
+            socket.on('host-reconnected', (data: { hostId: string; hostSocketId: string }) => {
+                console.log('[ViewerPage] Host reconnected, refreshing connection...')
+                toast.info('Host reconnected. Refreshing screen share...')
+                // Reload page to re-establish WebRTC connection
+                setTimeout(() => {
+                    window.location.reload()
+                }, 500)
+            })
+
+            return () => {
+                socket.off('host-reconnected')
+            }
+        }
+    }, [socket])
+
     // Redirect if room is closed
     useEffect(() => {
         if (isRoomClosed) {
-            alert('The host has left, and the room has been closed.')
-            navigate('/')
+            toast.error('The host has left, and the room has been closed.')
+            sessionStorage.removeItem('roomData')
+            sessionStorage.removeItem('viewerMember')
+            setTimeout(() => navigate('/'), 2000)
         }
-    }, [isRoomClosed, navigate]) // Added navigate to dependency array for correctness
+    }, [isRoomClosed, navigate])
 
     // Attach remote stream to video element
     useEffect(() => {
@@ -60,6 +128,36 @@ export default function ViewerPage() {
             videoRef.current.srcObject = remoteStream
         }
     }, [remoteStream])
+
+    const handleJoinRoom = () => {
+        if (!manualRoomId.trim()) {
+            alert('Please enter a Room ID')
+            return
+        }
+        if (!viewerMember) {
+            alert('Please enter a valid member ID')
+            return
+        }
+        clearError()
+        setRoomId(manualRoomId)
+        joinRoom(manualRoomId, viewerMember.genID, viewerMember.name)
+        setHasJoined(true)
+    }
+
+    // Handle errors - reset join state when room not found
+    useEffect(() => {
+        if (error) {
+            setHasJoined(false)
+            // If room not found, clear sessionStorage
+            if (error.includes('not found') || error.includes('does not exist')) {
+                toast.error('Room not found. Please check the Room ID.')
+                sessionStorage.removeItem('roomData')
+                sessionStorage.removeItem('viewerMemberId')
+            }
+        }
+    }, [error])
+
+
 
     // Main viewer interface
     return (

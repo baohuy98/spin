@@ -6,18 +6,55 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Moon,
   Share2,
   Sun,
+  Link2,
+  QrCode,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
+import { useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { QRCodeSVG } from "qrcode.react";
+import { toast } from "sonner";
 
-export function Header() {
+interface HeaderProps {
+  roomId?: string;
+  onCopyLink?: () => void;
+  onShowQRCode?: () => void;
+  getRoomLink?: () => string;
+}
+
+export function Header({ roomId, onCopyLink, getRoomLink }: HeaderProps) {
   const { theme, setTheme } = useTheme();
+  const [showQRModal, setShowQRModal] = useState(false);
 
   const toggleTheme = () => {
     setTheme(theme === "light" ? "dark" : "light");
   };
+
+  const handleCopyLink = () => {
+    if (onCopyLink) {
+      onCopyLink();
+    } else if (getRoomLink) {
+      const link = getRoomLink();
+      if (link) {
+        navigator.clipboard.writeText(link);
+        toast.success('Room link copied to clipboard!');
+      }
+    }
+  };
+
+  const handleShowQRCode = () => {
+    setShowQRModal(true);
+  };
+
 
   return (
     <header className="sticky top-0 z-50 flex items-center justify-between px-4 py-2 bg-background border-b backdrop-blur supports-backdrop-filter:bg-background/60">
@@ -35,16 +72,32 @@ export function Header() {
       <TooltipProvider>
         <div className="flex items-center gap-1">
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <Share2 className="h-5 w-5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Share</p>
-            </TooltipContent>
-          </Tooltip>
+          {roomId && (
+            <DropdownMenu>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon">
+                      <Share2 className="h-5 w-5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Share</p>
+                </TooltipContent>
+              </Tooltip>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={handleCopyLink}>
+                  <Link2 className="mr-2 h-4 w-4" />
+                  <span>Copy Link</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleShowQRCode}>
+                  <QrCode className="mr-2 h-4 w-4" />
+                  <span>Show QR Code</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
 
           <Tooltip>
             <TooltipTrigger asChild>
@@ -64,6 +117,58 @@ export function Header() {
 
         </div>
       </TooltipProvider>
+
+      {/* QR Code Modal */}
+      <AnimatePresence>
+        {showQRModal && roomId && getRoomLink && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center h-screen p-4"
+            onClick={() => setShowQRModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              className="bg-card border rounded-2xl p-8 max-w-md w-full shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-center space-y-6">
+                <h2 className="text-3xl font-bold">Share Room</h2>
+
+                {/* QR Code */}
+                <div className="bg-background p-6 rounded-xl border-4 border-primary inline-block">
+                  <QRCodeSVG
+                    value={getRoomLink()}
+                    size={200}
+                    level="H"
+                  />
+                </div>
+
+                {/* Room ID Display */}
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground font-semibold">Room ID</p>
+                  <div className="bg-accent px-4 py-3 rounded-lg">
+                    <p className="font-mono font-bold text-lg text-primary">{roomId}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowQRModal(false)}
+                  className="text-muted-foreground hover:text-foreground text-sm"
+                >
+                  Close
+                </button>
+
+                <p className="text-xs text-muted-foreground">
+                  Scan the QR code or share the link/ID with viewers to join this room
+                </p>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </header>
   );
 }
