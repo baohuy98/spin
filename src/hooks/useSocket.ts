@@ -16,6 +16,15 @@ interface SocketError {
   message: string
 }
 
+export interface ChatMessage {
+  id: string
+  userId: string
+  userName: string
+  message: string
+  timestamp: number
+  roomId: string
+}
+
 export function useSocket(options: UseSocketOptions = {}) {
   const { url = 'http://localhost:3003', autoConnect = true } = options
   const socketRef = useRef<Socket | null>(null)
@@ -24,6 +33,7 @@ export function useSocket(options: UseSocketOptions = {}) {
   const [roomData, setRoomData] = useState<RoomData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isRoomClosed, setIsRoomClosed] = useState(false)
+  const [messages, setMessages] = useState<ChatMessage[]>([])
 
   useEffect(() => {
     if (autoConnect) {
@@ -82,6 +92,17 @@ export function useSocket(options: UseSocketOptions = {}) {
         console.error('Socket error:', data)
         setError(data.message)
       })
+
+      // Chat events
+      newSocket.on('chat-message', (data: ChatMessage) => {
+        console.log('Received chat message:', data)
+        setMessages(prev => [...prev, data])
+      })
+
+      newSocket.on('chat-history', (data: { messages: ChatMessage[] }) => {
+        console.log('Received chat history:', data)
+        setMessages(data.messages)
+      })
     }
 
     return () => {
@@ -124,6 +145,18 @@ export function useSocket(options: UseSocketOptions = {}) {
     }
   }
 
+  const sendChatMessage = (roomId: string, userId: string, userName: string, message: string) => {
+    if (socketRef.current) {
+      const chatMessage: Omit<ChatMessage, 'id' | 'timestamp'> = {
+        roomId,
+        userId,
+        userName,
+        message
+      }
+      socketRef.current.emit('send-message', chatMessage)
+    }
+  }
+
   const clearError = () => {
     setError(null)
   }
@@ -139,6 +172,8 @@ export function useSocket(options: UseSocketOptions = {}) {
     leaveRoom,
     emitSpinResult,
     onSpinResult,
-    isRoomClosed
+    isRoomClosed,
+    messages,
+    sendChatMessage
   }
 }

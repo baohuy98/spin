@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useSocket } from '../../hooks/useSocket'
 import { useWebRTC } from '../../hooks/useWebRTC'
+import ChatComments from './ChatComments'
 
 export default function ViewerPage() {
     const navigate = useNavigate()
@@ -11,7 +12,6 @@ export default function ViewerPage() {
     const genID = searchParams.get('genId') || ''
     const roomId = searchParams.get('roomId')
 
-
     const [hasJoined, setHasJoined] = useState(false)
 
     const [spinResult, setSpinResult] = useState<string | null>(null)
@@ -19,7 +19,7 @@ export default function ViewerPage() {
     const videoRef = useRef<HTMLVideoElement>(null)
 
     // Socket.io for room management
-    const { socket, isConnected, roomData, error, joinRoom, onSpinResult, isRoomClosed } = useSocket()
+    const { socket, isConnected, roomData, error, joinRoom, onSpinResult, isRoomClosed, messages, sendChatMessage } = useSocket()
 
     // WebRTC for receiving screen share
     const { remoteStream } = useWebRTC({
@@ -170,19 +170,20 @@ export default function ViewerPage() {
                             </div>
                         )}
 
-                        {/* Placeholder for Future Features */}
-                        <div className="flex-1 bg-card border rounded-lg p-6 flex flex-col">
-                            <h3 className="text-xl font-semibold mb-4">
-                                Chat & Comments
-                            </h3>
-                            <div className="flex-1 flex items-center justify-center">
-                                <div className="text-center space-y-3">
-                                    <div className="text-5xl opacity-30">💬</div>
-                                    <p className="text-muted-foreground text-sm">
-                                        Feature coming soon...
-                                    </p>
-                                </div>
-                            </div>
+                        {/* Chat & Comments */}
+                        <div className="flex-1 min-h-[400px]">
+                            <ChatComments
+                                roomId={roomId}
+                                currentUserId={genID}
+                                currentUserName={genID}
+                                messages={messages}
+                                onSendMessage={(message) => {
+                                    if (roomId) {
+                                        sendChatMessage(roomId, genID, genID, message)
+                                    }
+                                }}
+                                isConnected={isConnected}
+                            />
                         </div>
                     </div>
                 </div>
