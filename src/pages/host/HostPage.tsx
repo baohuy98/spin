@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useSocket } from '../../hooks/useSocket'
 import { useWebRTC } from '../../hooks/useWebRTC'
 import { QRCodeSVG } from 'qrcode.react'
+import ChatComments from '../../components/ChatComments'
 import type { Member } from '../../utils/interface/MemberInterface'
 import { memberList } from '../../utils/mock/member-list/memberList'
 
@@ -47,7 +48,7 @@ export default function HostPage() {
   const videoRef = useRef<HTMLVideoElement>(null)
 
   // Socket.io for room management
-  const { socket, isConnected, roomData, createRoom, emitSpinResult } = useSocket()
+  const { socket, isConnected, roomData, createRoom, emitSpinResult, messages, sendChatMessage } = useSocket()
 
   // Generate shareable room link - relies on roomData from the socket
   const getRoomLink = () => {
@@ -433,6 +434,22 @@ export default function HostPage() {
                   </div>
                 ))}
               </div>
+            </div>
+
+            {/* Chat & Comments Card */}
+            <div className="bg-white/10 backdrop-blur-md rounded-xl overflow-hidden min-h-[500px] flex flex-col">
+              <ChatComments
+                roomId={roomData?.roomId || null}
+                currentUserId={hostMember?.genID || ''}
+                currentUserName={hostMember?.name || ''}
+                messages={messages}
+                onSendMessage={(message) => {
+                  if (roomData?.roomId && hostMember) {
+                    sendChatMessage(roomData.roomId, hostMember.genID, hostMember.name, message)
+                  }
+                }}
+                isConnected={isConnected}
+              />
             </div>
           </div>
         </div>

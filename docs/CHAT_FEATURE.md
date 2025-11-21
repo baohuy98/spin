@@ -33,17 +33,19 @@ Chat & Comments feature cho phép viewers và host giao tiếp real-time trong r
 
 ```
 src/
+├── components/
+│   ├── ChatComments.tsx            # Shared chat component (REUSABLE)
+│   └── ui/
+│       ├── input.tsx               # shadcn Input component
+│       ├── button.tsx              # shadcn Button component
+│       └── scroll-area.tsx         # shadcn ScrollArea component
 ├── pages/
+│   ├── host/
+│   │   └── HostPage.tsx            # Host page với chat integration
 │   └── viewer/
-│       ├── ViewerPage.tsx          # Main viewer page với chat integration
-│       └── ChatComments.tsx        # Chat component (ISOLATED)
-├── hooks/
-│   └── useSocket.ts                # Socket.IO hook với chat events
-└── components/
-    └── ui/
-        ├── input.tsx               # shadcn Input component
-        ├── button.tsx              # shadcn Button component
-        └── scroll-area.tsx         # shadcn ScrollArea component
+│       └── ViewerPage.tsx          # Viewer page với chat integration
+└── hooks/
+    └── useSocket.ts                # Socket.IO hook với chat events
 ```
 
 ---
@@ -52,7 +54,7 @@ src/
 
 ### 1. ChatComments Component
 
-**Location**: [src/pages/viewer/ChatComments.tsx](src/pages/viewer/ChatComments.tsx)
+**Location**: [src/components/ChatComments.tsx](src/components/ChatComments.tsx) (Shared component)
 
 **Props Interface**:
 ```typescript
@@ -523,15 +525,47 @@ const MessageItem = React.memo(({ message, isOwn }) => {
 
 ## 🔗 Integration với HostPage
 
-**Status**: ⚠️ Chưa implement
+**Status**: ✅ Completed
 
-**Plan**:
-1. Add ChatComments component vào HostPage
-2. Reuse cùng một component
-3. Host có thể chat với viewers
-4. Optional: Host có quyền delete messages
+**Implementation**:
+1. ✅ Added ChatComments component vào HostPage
+2. ✅ Reused same component as ViewerPage
+3. ✅ Host có thể chat với viewers
+4. ✅ Uses host's actual name from memberList
 
-**File to modify**: [src/pages/host/HostPage.tsx](src/pages/host/HostPage.tsx)
+**File modified**: [src/pages/host/HostPage.tsx](src/pages/host/HostPage.tsx)
+
+**Code**:
+```tsx
+// Import
+import ChatComments from '../../components/ChatComments'
+
+// In component
+const { messages, sendChatMessage } = useSocket()
+
+// In JSX - Added after Controls Card in right panel
+<div className="bg-white/10 backdrop-blur-md rounded-xl overflow-hidden min-h-[500px] flex flex-col">
+  <ChatComments
+    roomId={roomData?.roomId || null}
+    currentUserId={hostMember?.genID || ''}
+    currentUserName={hostMember?.name || ''}
+    messages={messages}
+    onSendMessage={(message) => {
+      if (roomData?.roomId && hostMember) {
+        sendChatMessage(roomData.roomId, hostMember.genID, hostMember.name, message)
+      }
+    }}
+    isConnected={isConnected}
+  />
+</div>
+```
+
+**Features**:
+- Host chat appears in purple (primary color)
+- Viewers can see host's actual name (e.g., "Alice" instead of genID)
+- Real-time bidirectional communication
+- Shared message history between host and all viewers
+- Same beautiful UI on both host and viewer sides
 
 ---
 
