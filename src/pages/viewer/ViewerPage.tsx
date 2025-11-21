@@ -1,47 +1,25 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useRef, useState } from 'react'
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useSocket } from '../../hooks/useSocket'
 import { useWebRTC } from '../../hooks/useWebRTC'
-import type { Member } from '../../utils/interface/MemberInterface'
-import { memberList } from '../../utils/mock/member-list/memberList'
 
 export default function ViewerPage() {
-    const location = useLocation()
     const navigate = useNavigate()
     const [searchParams] = useSearchParams()
 
-    // Get member from location state
-    const preSelectedMember = (location.state as { member?: Member })?.member
+    const genID = searchParams.get('genId') || ''
+    const roomId = searchParams.get('roomId')
 
-    // Get roomId from URL query parameter or state
-    const [roomId, setRoomId] = useState<string>(() => {
-        const urlRoomId = searchParams.get('roomId')
-        const stateRoomId = (location.state as { roomId?: string })?.roomId
-        return urlRoomId || stateRoomId || ''
-    })
 
-    const [manualRoomId, setManualRoomId] = useState(roomId || '')
-    const [genID, setGenID] = useState(preSelectedMember?.genID || '')
-    const [viewerMember, setViewerMember] = useState<Member | null>(preSelectedMember || null)
     const [hasJoined, setHasJoined] = useState(false)
 
-    // Auto-map genID to member
-    useEffect(() => {
-        if (genID.trim()) {
-            const member = memberList.find(m => m.genID === genID.trim())
-            setViewerMember(member || null)
-        } else {
-            setViewerMember(null)
-        }
-    }, [genID])
     const [spinResult, setSpinResult] = useState<string | null>(null)
-    const [showResult, setShowResult] = useState(false)
 
     const videoRef = useRef<HTMLVideoElement>(null)
 
     // Socket.io for room management
-    const { socket, isConnected, roomData, error, clearError, joinRoom, onSpinResult, isRoomClosed } = useSocket()
+    const { socket, isConnected, roomData, error, joinRoom, onSpinResult, isRoomClosed } = useSocket()
 
     // WebRTC for receiving screen share
     const { remoteStream } = useWebRTC({
@@ -52,18 +30,17 @@ export default function ViewerPage() {
 
     // Auto-join room if roomId is provided in URL
     useEffect(() => {
-        if (isConnected && roomId && viewerMember && !hasJoined) {
-            joinRoom(roomId, viewerMember.genID)
+        if (isConnected && roomId && genID && !hasJoined) {
+            joinRoom(roomId, genID)
             setHasJoined(true)
         }
-    }, [isConnected, roomId, viewerMember, hasJoined])
+    }, [isConnected, roomId, genID, hasJoined])
 
     // Listen for spin results
     useEffect(() => {
         if (socket) {
             onSpinResult((result: string) => {
                 setSpinResult(result)
-                setShowResult(true)
             })
         }
     }, [socket, onSpinResult]) // Added onSpinResult to dependency array for correctness
@@ -83,29 +60,12 @@ export default function ViewerPage() {
         }
     }, [remoteStream])
 
-    const handleJoinRoom = () => {
-        if (!manualRoomId.trim()) {
-            alert('Please enter a Room ID')
-            return
-        }
-        if (!viewerMember) {
-            alert('Please enter a valid member ID')
-            return
-        }
-        clearError()
-        setRoomId(manualRoomId)
-        joinRoom(manualRoomId, viewerMember.genID)
-        setHasJoined(true)
-    }
-
     // Handle errors - reset join state when room not found
     useEffect(() => {
         if (error) {
             setHasJoined(false)
         }
     }, [error])
-
-
 
     // Main viewer interface
     return (
