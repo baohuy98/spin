@@ -29,7 +29,7 @@ export default function Home() {
       alert('Please enter a room ID to join')
       return
     }
-    navigate(`/viewer?roomId=${roomID.trim()}`, { state: { member: matchedMember } })
+    navigate(`/viewer?genId=${genID.trim()}&roomId=${roomID.trim()}`, { state: { member: matchedMember } })
   }
 
   return (
