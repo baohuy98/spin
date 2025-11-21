@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { AlertCircle, CheckCircle2, Loader2, XCircle } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import ChatView from '../../components/ChatView'
 import { Alert, AlertDescription } from '../../components/ui/alert'
 import { useSocket } from '../../hooks/useSocket'
@@ -11,6 +11,7 @@ import { toast } from 'sonner'
 
 export default function ViewerPage() {
     const navigate = useNavigate()
+    const location = useLocation()
     const [searchParams] = useSearchParams()
 
     const genID = searchParams.get('genId') || ''
@@ -67,7 +68,7 @@ export default function ViewerPage() {
     const videoRef = useRef<HTMLVideoElement>(null)
 
     // Socket.io for room management
-    const { socket, isConnected, roomData, error, joinRoom, onSpinResult, isRoomClosed, messages, sendChatMessage } = useSocket()
+    const { socket, isConnected, roomData, error, clearError, joinRoom, onSpinResult, isRoomClosed, messages, sendChatMessage } = useSocket()
 
     // WebRTC for receiving screen share
     const { remoteStream } = useWebRTC({
