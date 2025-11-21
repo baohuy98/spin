@@ -6,6 +6,7 @@ import { useSocket } from '../../hooks/useSocket'
 import { useWebRTC } from '../../hooks/useWebRTC'
 import type { Member } from '../../utils/interface/MemberInterface'
 import { toast } from 'sonner'
+import ChatView from '@/components/ChatView'
 
 interface WheelItem {
   id: string
@@ -485,7 +486,7 @@ export default function HostPage() {
 
             {/* Chat & Comments Card */}
             <div className="bg-white/10 backdrop-blur-md rounded-xl overflow-hidden min-h-[500px] flex flex-col">
-              <ChatComments
+              <ChatView
                 roomId={roomData?.roomId || null}
                 currentUserId={hostMember?.genID || ''}
                 currentUserName={hostMember?.name || ''}
