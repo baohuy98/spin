@@ -1,7 +1,9 @@
 import { AnimatePresence, motion } from 'framer-motion'
+import { AlertCircle, CheckCircle2, Loader2, XCircle } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import ChatComments from '../../components/ChatComments'
+import ChatView from '../../components/ChatView'
+import { Alert, AlertDescription } from '../../components/ui/alert'
 import { useSocket } from '../../hooks/useSocket'
 import { useWebRTC } from '../../hooks/useWebRTC'
 
@@ -11,8 +13,6 @@ export default function ViewerPage() {
 
     const genID = searchParams.get('genId') || ''
     const roomId = searchParams.get('roomId')
-
-    const [hasJoined, setHasJoined] = useState(false)
 
     const [spinResult, setSpinResult] = useState<string | null>(null)
 
@@ -28,13 +28,14 @@ export default function ViewerPage() {
         isHost: false
     })
 
+    const connectedRoomID = roomData?.roomId;
+
     // Auto-join room if roomId is provided in URL
     useEffect(() => {
-        if (isConnected && roomId && genID && !hasJoined) {
+        if (isConnected && roomId && genID && !connectedRoomID) {
             joinRoom(roomId, genID)
-            setHasJoined(true)
         }
-    }, [isConnected, roomId, genID, hasJoined])
+    }, [isConnected, roomId, genID, connectedRoomID])
 
     // Listen for spin results
     useEffect(() => {
@@ -60,13 +61,6 @@ export default function ViewerPage() {
         }
     }, [remoteStream])
 
-    // Handle errors - reset join state when room not found
-    useEffect(() => {
-        if (error) {
-            setHasJoined(false)
-        }
-    }, [error])
-
     // Main viewer interface
     return (
         <div className="min-h-screen bg-background pt-20 pb-10">
@@ -75,18 +69,42 @@ export default function ViewerPage() {
                     {/* Left Panel - Screen Share */}
                     <div className="flex-1 flex flex-col gap-4">
                         {/* Room Info */}
-                        <div className="bg-card border rounded-lg p-4">
+                        <div className="bg-card border rounded-lg p-4 space-y-3">
                             <div className="flex items-center justify-between">
                                 <div>
                                     <h3 className="text-lg font-semibold">Viewer Mode</h3>
                                     <p className="text-sm text-muted-foreground">Room: {roomId || 'Not connected'}</p>
                                 </div>
-                                <div className={`px-3 py-1 rounded-full text-xs font-semibold ${isConnected ? 'bg-green-500' : 'bg-yellow-500'
-                                    } text-white`}>
-                                    {isConnected ? 'Connected' : 'Connecting...'}
-                                </div>
+                                {/* Connection Status Badge */}
+                                {error ? (
+                                    <div className="px-3 py-1 rounded-full text-xs font-semibold bg-destructive text-white text-destructive-foreground flex items-center gap-1.5">
+                                        <XCircle className="w-3 h-3" />
+                                        Failed
+                                    </div>
+                                ) : connectedRoomID ? (
+                                    <div className="px-3 py-1 rounded-full text-xs font-semibold bg-green-500 text-white flex items-center gap-1.5">
+                                        <CheckCircle2 className="w-3 h-3" />
+                                        Connected
+                                    </div>
+                                ) : (
+                                    <div className="px-3 py-1 rounded-full text-xs font-semibold bg-yellow-500 text-white flex items-center gap-1.5">
+                                        <Loader2 className="w-3 h-3 animate-spin" />
+                                        Connecting...
+                                    </div>
+                                )}
                             </div>
+
+                            {/* Error Alert */}
+                            {error && (
+                                <Alert variant="destructive" className='border-none p-0'>
+                                    <AlertCircle className="h-4 w-4" />
+                                    <AlertDescription className="ml-2">
+                                        {error}
+                                    </AlertDescription>
+                                </Alert>
+                            )}
                         </div>
+
 
                         {/* Screen Share Display */}
                         <div className="flex-1 bg-card border rounded-lg p-6 flex flex-col">
@@ -100,11 +118,6 @@ export default function ViewerPage() {
                                 )}
                             </div>
 
-                            {error && (
-                                <div className="bg-destructive/10 border border-destructive rounded-lg p-4 mb-4">
-                                    <p className="text-destructive text-sm">{error}</p>
-                                </div>
-                            )}
 
                             <div className="flex-1 relative rounded-lg overflow-hidden bg-black">
                                 {remoteStream ? (
@@ -172,7 +185,7 @@ export default function ViewerPage() {
 
                         {/* Chat & Comments */}
                         <div className="flex-1 min-h-[400px]">
-                            <ChatComments
+                            <ChatView
                                 roomId={roomId}
                                 currentUserId={genID}
                                 currentUserName={genID}

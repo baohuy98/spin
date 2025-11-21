@@ -13,7 +13,7 @@ export interface ChatMessage {
   timestamp: number
 }
 
-interface ChatCommentsProps {
+interface ChatViewProps {
   roomId: string | null
   currentUserId: string
   currentUserName: string
@@ -22,16 +22,14 @@ interface ChatCommentsProps {
   isConnected: boolean
 }
 
-export default function ChatComments({
+export default function ChatView({
   roomId,
   currentUserId,
-  currentUserName,
   messages,
   onSendMessage,
   isConnected
-}: ChatCommentsProps) {
+}: ChatViewProps) {
   const [inputMessage, setInputMessage] = useState('')
-  const scrollAreaRef = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // Auto-scroll to bottom when new message arrives
@@ -66,14 +64,14 @@ export default function ChatComments({
       {/* Header */}
       <div className="px-4 py-3 border-b flex items-center gap-2">
         <MessageCircle className="w-5 h-5 text-primary" />
-        <h3 className="text-lg font-semibold flex-1">Chat & Comments</h3>
+        <h3 className="text-lg font-semibold flex-1">Chat</h3>
         {!isConnected && (
           <span className="text-xs text-muted-foreground">Offline</span>
         )}
       </div>
 
       {/* Messages Area */}
-      <ScrollArea className="flex-1 px-4 py-3">
+      <ScrollArea className="flex-1 h-[200px] px-4 py-3">
         <div className="space-y-3">
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -94,8 +92,8 @@ export default function ChatComments({
                 >
                   <div
                     className={`max-w-[80%] rounded-lg px-3 py-2 ${isOwnMessage(msg.userId)
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-accent'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-accent'
                       }`}
                   >
                     {!isOwnMessage(msg.userId) && (
@@ -103,11 +101,11 @@ export default function ChatComments({
                         {msg.userName}
                       </p>
                     )}
-                    <p className="text-sm break-words">{msg.message}</p>
+                    <p className="text-sm wrap-break-words">{msg.message}</p>
                     <p
                       className={`text-xs mt-1 ${isOwnMessage(msg.userId)
-                          ? 'text-primary-foreground/60'
-                          : 'text-muted-foreground'
+                        ? 'text-primary-foreground/60'
+                        : 'text-muted-foreground'
                         }`}
                     >
                       {formatTime(msg.timestamp)}
@@ -145,11 +143,6 @@ export default function ChatComments({
             <Send className="w-4 h-4" />
           </Button>
         </form>
-        {inputMessage.length > 0 && (
-          <p className="text-xs text-muted-foreground mt-1">
-            {inputMessage.length}/500
-          </p>
-        )}
       </div>
     </div>
   )
