@@ -1,3 +1,4 @@
+import ChatView from '@/components/ChatView'
 import { AnimatePresence, motion } from 'framer-motion'
 import { QRCodeSVG } from 'qrcode.react'
 import { useEffect, useRef, useState } from 'react'
@@ -437,7 +438,7 @@ export default function HostPage() {
 
             {/* Chat & Comments Card */}
             <div className="bg-white/10 backdrop-blur-md rounded-xl overflow-hidden min-h-[500px] flex flex-col">
-              <ChatComments
+              <ChatView
                 roomId={roomData?.roomId || null}
                 currentUserId={hostMember?.genID || ''}
                 currentUserName={hostMember?.name || ''}
