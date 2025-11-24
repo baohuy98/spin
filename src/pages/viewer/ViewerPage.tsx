@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { AlertCircle, CheckCircle2, Loader2, Maximize, Minimize, XCircle } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import ChatView from '../../components/ChatView'
@@ -94,7 +94,7 @@ export default function ViewerPage() {
     const videoContainerRef = useRef<HTMLDivElement>(null)
 
     // Socket.io for room management
-    const { socket, isConnected, roomData, error, joinRoom, onSpinResult, isRoomClosed, isHostDisconnected, messages, sendChatMessage, reactToMessage } = useSocket()
+    const { socket, isConnected, roomData, error, joinRoom, leaveRoom, onSpinResult, isRoomClosed, isHostDisconnected, messages, sendChatMessage, reactToMessage } = useSocket()
 
     // Handle host disconnection/reconnection toasts
     useEffect(() => {
@@ -172,6 +172,47 @@ export default function ViewerPage() {
         sessionStorage.removeItem('viewerMember')
         navigate('/')
     }
+
+    // Handle leave room
+    const handleLeaveRoom = useCallback(() => {
+        if (!roomId || !viewerMember) return
+
+        // Leave the room via socket
+        leaveRoom(roomId, viewerMember.genID)
+
+        // Clear session storage
+        sessionStorage.removeItem('roomData')
+        sessionStorage.removeItem('viewerMember')
+
+        navigate('/')
+    }, [roomId, viewerMember, leaveRoom, navigate])
+
+    // Emit room data to App component for Header
+    useEffect(() => {
+        if (roomData?.roomId) {
+            const event = new CustomEvent('roomDataUpdate', {
+                detail: {
+                    roomId: roomData.roomId,
+                    getRoomLink: () => {
+                        if (!roomData?.roomId) return ''
+                        return `${window.location.origin}/viewer?roomId=${roomData.roomId}`
+                    },
+                    onLeave: handleLeaveRoom
+                }
+            })
+            window.dispatchEvent(event)
+        }
+    }, [roomData?.roomId])
+
+    // Cleanup: clear room data when component unmounts
+    useEffect(() => {
+        return () => {
+            const clearEvent = new CustomEvent('roomDataUpdate', {
+                detail: {}
+            })
+            window.dispatchEvent(clearEvent)
+        }
+    }, [])
 
     // Attach remote stream to video element
     useEffect(() => {
