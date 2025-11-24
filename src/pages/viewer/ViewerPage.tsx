@@ -1,25 +1,81 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { AlertCircle, CheckCircle2, Loader2, XCircle } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import ChatView from '../../components/ChatView'
 import { Alert, AlertDescription } from '../../components/ui/alert'
 import { useSocket } from '../../hooks/useSocket'
 import { useWebRTC } from '../../hooks/useWebRTC'
+import type { Member } from '../../utils/interface/MemberInterface'
+import { toast } from 'sonner'
 
 export default function ViewerPage() {
     const navigate = useNavigate()
+    const location = useLocation()
     const [searchParams] = useSearchParams()
 
     const genID = searchParams.get('genId') || ''
-    const roomId = searchParams.get('roomId')
+
+    // Get member from location state (logged-in user data from Home.tsx)
+    const preSelectedMember = (location.state as { member?: Member })?.member
+
+    // Get roomId from URL query parameter, state, or sessionStorage
+    const [roomId, setRoomId] = useState<string>(() => {
+        const urlRoomId = searchParams.get('roomId')
+        const stateRoomId = (location.state as { roomId?: string })?.roomId
+        const savedRoomData = sessionStorage.getItem('roomData')
+        const sessionRoomId = savedRoomData ? JSON.parse(savedRoomData).roomId : ''
+        return urlRoomId || stateRoomId || sessionRoomId || ''
+    })
+
+    const [manualRoomId, setManualRoomId] = useState(roomId || '')
+
+    // Use the logged-in member data directly - no lookup in memberList
+    const [viewerMember, setViewerMember] = useState<Member | null>(() => {
+        // Priority: 1. Current login data (preSelectedMember), 2. sessionStorage (for page reload)
+        if (preSelectedMember) {
+            // Clear old sessionStorage if we have fresh login data
+            sessionStorage.setItem('viewerMember', JSON.stringify(preSelectedMember))
+            return preSelectedMember
+        }
+
+        // Fallback to sessionStorage for page reload scenario
+        const savedMember = sessionStorage.getItem('viewerMember')
+        if (savedMember) {
+            try {
+                return JSON.parse(savedMember)
+            } catch {
+                return null
+            }
+        }
+        return null
+    })
+
+    const [hasJoined, setHasJoined] = useState(false)
+
+    // Save viewer member to sessionStorage when it changes
+    useEffect(() => {
+        if (viewerMember) {
+            sessionStorage.setItem('viewerMember', JSON.stringify(viewerMember))
+        } else {
+            sessionStorage.removeItem('viewerMember')
+        }
+    }, [viewerMember])
+
+    // Redirect to home if not logged in
+    useEffect(() => {
+        if (!viewerMember) {
+            toast.error('Please login first to join a room')
+            setTimeout(() => navigate('/'), 1000)
+        }
+    }, [viewerMember, navigate])
 
     const [spinResult, setSpinResult] = useState<string | null>(null)
 
     const videoRef = useRef<HTMLVideoElement>(null)
 
     // Socket.io for room management
-    const { socket, isConnected, roomData, error, joinRoom, onSpinResult, isRoomClosed, messages, sendChatMessage } = useSocket()
+    const { socket, isConnected, roomData, error, clearError, joinRoom, onSpinResult, isRoomClosed, messages, sendChatMessage } = useSocket()
 
     // WebRTC for receiving screen share
     const { remoteStream } = useWebRTC({
@@ -29,13 +85,13 @@ export default function ViewerPage() {
     })
 
     const connectedRoomID = roomData?.roomId;
-
-    // Auto-join room if roomId is provided in URL
     useEffect(() => {
-        if (isConnected && roomId && genID && !connectedRoomID) {
-            joinRoom(roomId, genID)
+        if (isConnected && roomId && viewerMember && !hasJoined) {
+            console.log('[ViewerPage] Auto-joining room:', roomId, 'with member:', viewerMember.genID, viewerMember.name)
+            joinRoom(roomId, viewerMember.genID, viewerMember.name)
+            setHasJoined(true)
         }
-    }, [isConnected, roomId, genID, connectedRoomID])
+    }, [isConnected, roomId, viewerMember, hasJoined, joinRoom])
 
     // Listen for spin results
     useEffect(() => {
@@ -46,13 +102,27 @@ export default function ViewerPage() {
         }
     }, [socket, onSpinResult]) // Added onSpinResult to dependency array for correctness
 
-    // Redirect if room is closed
+    // Listen for host reconnection (when host reloads page)
     useEffect(() => {
-        if (isRoomClosed) {
-            alert('The host has left, and the room has been closed.')
-            navigate('/')
+        if (socket) {
+            socket.on('host-reconnected', () => {
+                console.log('[ViewerPage] Host reconnected, WebRTC will be reset')
+                toast.info('Host reconnected. Waiting for screen share...')
+                // WebRTC reset is handled in useWebRTC hook
+            })
+
+            return () => {
+                socket.off('host-reconnected')
+            }
         }
-    }, [isRoomClosed, navigate]) // Added navigate to dependency array for correctness
+    }, [socket])
+
+    // Handle room closed - show modal instead of auto-redirect
+    const handleRoomClosedConfirm = () => {
+        sessionStorage.removeItem('roomData')
+        sessionStorage.removeItem('viewerMember')
+        navigate('/')
+    }
 
     // Attach remote stream to video element
     useEffect(() => {
@@ -60,6 +130,36 @@ export default function ViewerPage() {
             videoRef.current.srcObject = remoteStream
         }
     }, [remoteStream])
+
+    const handleJoinRoom = () => {
+        if (!manualRoomId.trim()) {
+            alert('Please enter a Room ID')
+            return
+        }
+        if (!viewerMember) {
+            alert('Please enter a valid member ID')
+            return
+        }
+        clearError()
+        setRoomId(manualRoomId)
+        joinRoom(manualRoomId, viewerMember.genID, viewerMember.name)
+        setHasJoined(true)
+    }
+
+    // Handle errors - reset join state when room not found
+    useEffect(() => {
+        if (error) {
+            setHasJoined(false)
+            // If room not found, clear sessionStorage
+            if (error.includes('not found') || error.includes('does not exist')) {
+                toast.error('Room not found. Please check the Room ID.')
+                sessionStorage.removeItem('roomData')
+                sessionStorage.removeItem('viewerMemberId')
+            }
+        }
+    }, [error])
+
+
 
     // Main viewer interface
     return (
@@ -221,6 +321,39 @@ export default function ViewerPage() {
                                 <p className="text-gray-500 text-sm">This message will disappear in 5 seconds</p>
                             </div>
                         </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Room Closed Modal */}
+            <AnimatePresence>
+                {isRoomClosed && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+                    >
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.9 }}
+                            className="bg-white rounded-2xl p-8 shadow-2xl max-w-md mx-4"
+                        >
+                            <div className="text-center space-y-6">
+                                <div className="text-6xl">👋</div>
+                                <h2 className="text-2xl font-bold text-gray-800">Room Closed</h2>
+                                <p className="text-gray-600">
+                                    The host has left and the room has been closed.
+                                </p>
+                                <button
+                                    onClick={handleRoomClosedConfirm}
+                                    className="w-full px-6 py-3 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 transition-colors"
+                                >
+                                    OK
+                                </button>
+                            </div>
+                        </motion.div>
                     </motion.div>
                 )}
             </AnimatePresence>

@@ -92,12 +92,54 @@ export function useWebRTC({ socket, roomId, isHost }: UseWebRTCOptions) {
       }
     })
 
+    // Listen for existing viewers (when host restarts screen sharing)
+    socket.on('existing-viewers', async (data: { viewerIds: string[] }) => {
+      if (isHost && localStreamRef.current) {
+        console.log('Received existing viewers to reconnect:', data.viewerIds)
+        for (const viewerId of data.viewerIds) {
+          await createPeerConnectionForViewer(viewerId, localStreamRef.current)
+        }
+      }
+    })
+
+    // Listen for host reconnection (viewer only) - reset WebRTC state
+    socket.on('host-reconnected', () => {
+      if (!isHost) {
+        console.log('[VIEWER] Host reconnected, resetting WebRTC state')
+        // Close existing peer connection
+        if (peerConnectionRef.current) {
+          peerConnectionRef.current.close()
+          peerConnectionRef.current = null
+        }
+        setRemoteStream(null)
+        // Request stream from host
+        socket.emit('request-stream', { roomId })
+      }
+    })
+
+    // Listen for stream request (host only) - viewer is ready for WebRTC
+    socket.on('request-stream', (data: { viewerId: string }) => {
+      if (isHost && localStreamRef.current) {
+        console.log('[HOST] Viewer requested stream:', data.viewerId)
+        createPeerConnectionForViewer(data.viewerId, localStreamRef.current)
+      }
+    })
+
+    // For viewer: request stream when WebRTC is ready (handles page reload timing issue)
+    if (!isHost && !peerConnectionRef.current) {
+      console.log('[VIEWER] WebRTC ready, requesting stream from host')
+      socket.emit('request-stream', { roomId })
+    }
+
     return () => {
       socket.off('offer')
       socket.off('answer')
       socket.off('ice-candidate')
       socket.off('viewer-joined')
       socket.off('stop-sharing')
+      socket.off('existing-viewers')
+      socket.off('host-reconnected')
+      socket.off('request-stream')
     }
   }, [socket, roomId, isHost])
 
@@ -179,6 +221,14 @@ export function useWebRTC({ socket, roomId, isHost }: UseWebRTCOptions) {
   const createPeerConnectionForViewer = async (viewerId: string, stream: MediaStream) => {
     if (!socket || !roomId) return
 
+    // Check if peer connection already exists for this viewer
+    const existingConnection = peerConnectionsRef.current.get(viewerId)
+    if (existingConnection) {
+      console.log('Peer connection already exists for viewer:', viewerId, '- closing old connection')
+      existingConnection.close()
+      peerConnectionsRef.current.delete(viewerId)
+    }
+
     console.log('Creating peer connection for viewer:', viewerId)
 
     const peerConnection = new RTCPeerConnection(configuration)
@@ -231,6 +281,13 @@ export function useWebRTC({ socket, roomId, isHost }: UseWebRTCOptions) {
     if (!socket || !roomId) return
 
     console.log('Viewer handling offer')
+
+    // Close existing peer connection if any (host might have restarted sharing)
+    if (peerConnectionRef.current) {
+      console.log('Closing existing peer connection before creating new one')
+      peerConnectionRef.current.close()
+      peerConnectionRef.current = null
+    }
 
     const peerConnection = new RTCPeerConnection(configuration)
     peerConnectionRef.current = peerConnection

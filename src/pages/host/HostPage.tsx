@@ -1,13 +1,13 @@
 import ChatView from '@/components/ChatView'
 import { AnimatePresence, motion } from 'framer-motion'
-import { QRCodeSVG } from 'qrcode.react'
-import { useEffect, useRef, useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useState, useEffect, useRef } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import SpinWheel from '../../components/SpinWheel'
 import { useSocket } from '../../hooks/useSocket'
 import { useWebRTC } from '../../hooks/useWebRTC'
 import type { Member } from '../../utils/interface/MemberInterface'
-import { memberList } from '../../utils/mock/member-list/memberList'
+import { toast } from 'sonner'
+import ChatView from '@/components/ChatView'
 
 interface WheelItem {
   id: string
@@ -23,29 +23,26 @@ const defaultColors = [
 
 export default function HostPage() {
   const location = useLocation()
+  const navigate = useNavigate()
   const hostMember = (location.state as { member?: Member })?.member
 
-  const [roomMembers, setRoomMembers] = useState<Member[]>(() =>
-    hostMember ? [{ ...hostMember, isHost: true }] : []
-  )
-
-  // Initialize wheel items from memberList
+  // Initialize wheel items from room members (will be updated when room data loads)
   const [items, setItems] = useState<WheelItem[]>(() =>
-    memberList.map((member, index) => ({
-      id: member.genID,
-      text: member.name,
-      color: defaultColors[index % defaultColors.length],
+    hostMember ? [{
+      id: hostMember.genID,
+      text: hostMember.name,
+      color: defaultColors[0],
       visible: true
-    }))
+    }] : []
   )
   const [isSpinning, setIsSpinning] = useState(false)
   const [result, setResult] = useState<string | null>(null)
   const [showSettings, setShowSettings] = useState(false)
   const [spinDuration, setSpinDuration] = useState(4)
   const [rotation, setRotation] = useState(0)
-  const [showShareModal, setShowShareModal] = useState(false)
 
   const videoRef = useRef<HTMLVideoElement>(null)
+  const roomCreatedRef = useRef(false)
 
   // Socket.io for room management
   const { socket, isConnected, roomData, createRoom, emitSpinResult, messages, sendChatMessage } = useSocket()
@@ -68,30 +65,52 @@ export default function HostPage() {
     isHost: true
   })
 
-  // Create room on mount
+  // Create room on mount - reuse existing room if available for stable room ID
   useEffect(() => {
-    if (isConnected && hostMember) {
-      createRoom(hostMember.genID)
+    if (isConnected && hostMember && !roomCreatedRef.current) {
+      roomCreatedRef.current = true
+      const savedRoomData = sessionStorage.getItem('roomData')
+      if (savedRoomData) {
+        try {
+          const parsedData = JSON.parse(savedRoomData)
+          // If we have saved room data for this host, rooms are now persistent
+          if (parsedData.hostId === hostMember.genID) {
+            console.log('[HostPage] Room persists across reloads, creating/rejoining room:', parsedData.roomId)
+            // Creating room with same host will reuse existing room (stable room ID)
+            createRoom(hostMember.genID, hostMember.name)
+            return
+          } else {
+            // Different host, clear old data
+            console.log('[HostPage] Clearing old room data for different host')
+            sessionStorage.removeItem('roomData')
+            sessionStorage.removeItem('roomDataTimestamp')
+          }
+        } catch (e) {
+          console.error('[HostPage] Failed to parse saved room data:', e)
+          sessionStorage.removeItem('roomData')
+          sessionStorage.removeItem('roomDataTimestamp')
+        }
+      }
+      // Create new room if no saved data or different host
+      console.log('[HostPage] Creating new room for host:', hostMember.genID, hostMember.name)
+      createRoom(hostMember.genID, hostMember.name)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConnected, hostMember])
 
-  // Update room members when socket room data changes
+  // Update wheel items when socket room data changes
   useEffect(() => {
-    if (roomData && roomData.members) {
-      // Map socket member IDs to Member objects
-      const updatedMembers = roomData.members.map(memberId => {
-        const member = memberList.find(m => m.genID === memberId)
-        if (member) {
-          return {
-            ...member,
-            isHost: memberId === hostMember?.genID
-          }
-        }
-        return { genID: memberId, name: `User ${memberId}`, isHost: false }
-      })
-      setRoomMembers(updatedMembers)
+    if (roomData && roomData.membersWithDetails) {
+      // Update wheel items with actual logged-in room members
+      const updatedItems = roomData.membersWithDetails.map((member, index) => ({
+        id: member.genID,
+        text: member.name,
+        color: defaultColors[index % defaultColors.length],
+        visible: true
+      }))
+      setItems(updatedItems)
     }
-  }, [roomData, hostMember])
+  }, [roomData])
 
   // Attach local stream to video element
   useEffect(() => {
@@ -99,6 +118,32 @@ export default function HostPage() {
       videoRef.current.srcObject = localStream
     }
   }, [localStream])
+
+  // Emit room data to App component for Header
+  useEffect(() => {
+    if (roomData?.roomId) {
+      const event = new CustomEvent('roomDataUpdate', {
+        detail: {
+          roomId: roomData.roomId,
+          getRoomLink: () => {
+            if (!roomData?.roomId) return ''
+            return `${window.location.origin}/viewer?roomId=${roomData.roomId}`
+          }
+        }
+      })
+      window.dispatchEvent(event)
+    }
+  }, [roomData?.roomId])
+
+  // Cleanup: clear room data when component unmounts
+  useEffect(() => {
+    return () => {
+      const clearEvent = new CustomEvent('roomDataUpdate', {
+        detail: {}
+      })
+      window.dispatchEvent(clearEvent)
+    }
+  }, [])
 
   const toggleVisibility = (id: string) => {
     setItems(items.map(item =>
@@ -120,12 +165,36 @@ export default function HostPage() {
   }
 
   const resetMembers = () => {
-    setItems(memberList.map((member, index) => ({
-      id: member.genID,
-      text: member.name,
-      color: defaultColors[index % defaultColors.length],
-      visible: true
-    })))
+    // Reset to current room members
+    if (roomData && roomData.membersWithDetails) {
+      const resetItems = roomData.membersWithDetails.map((member, index) => ({
+        id: member.genID,
+        text: member.name,
+        color: defaultColors[index % defaultColors.length],
+        visible: true
+      }))
+      setItems(resetItems)
+    }
+  }
+
+  const handleLeaveRoom = () => {
+    if (!roomData || !hostMember) return
+
+    // Stop screen sharing if active
+    if (isSharing) {
+      stopScreenShare()
+    }
+
+    // Leave the room
+    leaveRoom(roomData.roomId, hostMember.genID)
+
+    // Clear session storage
+    sessionStorage.removeItem('roomData')
+    sessionStorage.removeItem('roomDataTimestamp')
+
+    // Navigate back to home
+    toast.success('Left room successfully')
+    navigate('/')
   }
 
   const handleSpin = () => {
@@ -160,15 +229,7 @@ export default function HostPage() {
   const copyRoomId = () => {
     const currentRoomId = getCurrentRoomId()
     navigator.clipboard.writeText(currentRoomId)
-    alert('Room ID copied to clipboard!')
-  }
-
-  const copyRoomLink = () => {
-    const link = getRoomLink()
-    if (link) {
-      navigator.clipboard.writeText(link)
-      alert('Room link copied to clipboard!')
-    }
+    toast.success('Room ID copied to clipboard!')
   }
 
   const hideWinner = () => {
@@ -187,7 +248,7 @@ export default function HostPage() {
   }
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-purple-600 via-pink-600 to-red-600 pt-20 pb-10">
+    <div className="min-h-screen bg-background pt-20 pb-10">
       <div className="container mx-auto px-4">
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Left Panel - Wheel */}
@@ -206,7 +267,7 @@ export default function HostPage() {
             <button
               onClick={handleSpin}
               disabled={isSpinning || items.filter(i => i.visible).length === 0}
-              className="mt-8 px-12 py-4 bg-white text-purple-600 font-bold text-2xl rounded-full shadow-xl hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-105"
+              className="mt-8 px-12 py-4 bg-primary text-primary-foreground font-bold text-2xl rounded-full shadow-xl hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-105"
             >
               {isSpinning ? 'SPINNING...' : 'SPIN NOW'}
             </button>
@@ -215,9 +276,9 @@ export default function HostPage() {
           {/* Right Panel - Controls */}
           <div className="lg:w-96 space-y-4">
             {/* Room Info Card */}
-            <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 space-y-4">
+            <div className="bg-card border rounded-lg p-6 space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-xl font-bold text-white">Room Info</h3>
+                <h3 className="text-xl font-semibold">Room Info</h3>
                 <div className={`px-3 py-1 rounded-full text-xs font-semibold ${isConnected ? 'bg-green-500' : 'bg-yellow-500'} text-white`}>
                   {isConnected ? 'Connected' : 'Local Mode'}
                 </div>
@@ -226,81 +287,62 @@ export default function HostPage() {
               <div className="space-y-3">
                 {/* Host Info */}
                 {hostMember && (
-                  <div className="bg-purple-500/20 rounded-lg p-3 border border-purple-400">
-                    <p className="text-white/70 text-xs mb-1">Host</p>
-                    <p className="text-white font-bold">{hostMember.name}</p>
-                    <p className="text-white/70 text-xs">ID: {hostMember.genID}</p>
+                  <div className="bg-accent rounded-lg p-3 border">
+                    <p className="text-muted-foreground text-xs mb-1">Host</p>
+                    <p className="font-bold">{hostMember.name}</p>
+                    <p className="text-muted-foreground text-xs">ID: {hostMember.genID}</p>
                   </div>
                 )}
 
                 {/* Room ID */}
-                <div className="bg-white/10 rounded-lg p-3">
-                  <p className="text-white/70 text-xs mb-1">Room ID</p>
+                <div className="bg-accent rounded-lg p-3">
+                  <p className="text-muted-foreground text-xs mb-1">Room ID</p>
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-white font-mono font-bold text-sm truncate">{getCurrentRoomId()}</p>
+                    <p className="font-mono font-bold text-sm truncate">{getCurrentRoomId()}</p>
                     <button
                       onClick={copyRoomId}
-                      className="px-3 py-1 bg-purple-500 text-white text-xs font-semibold rounded hover:bg-purple-600 transition-colors shrink-0"
+                      className="px-3 py-1 bg-primary text-primary-foreground text-xs font-semibold rounded hover:bg-primary/90 transition-colors shrink-0"
                     >
                       Copy ID
                     </button>
                   </div>
                 </div>
 
-                {/* Share Buttons */}
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={copyRoomLink}
-                    className="px-4 py-2 bg-blue-500 text-white text-sm font-semibold rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                    Copy Link
-                  </button>
-                  <button
-                    onClick={() => setShowShareModal(true)}
-                    className="px-4 py-2 bg-green-500 text-white text-sm font-semibold rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-                    </svg>
-                    QR Code
-                  </button>
-                </div>
-
-                {/* Members List */}
-                <div className="bg-white/10 rounded-lg p-3">
-
+                {/* Members List - Only Logged-In Users */}
+                <div className="bg-accent rounded-lg p-3">
                   <div className="space-y-2 max-h-40 overflow-y-auto">
-                    {roomMembers.map((member) => (
-                      <div
-                        key={member.genID}
-                        className="flex items-center justify-between bg-white/10 rounded p-2"
-                      >
-                        <div>
-                          <p className="text-white font-semibold text-sm">{member.name}</p>
-                          <p className="text-white/60 text-xs">ID: {member.genID}</p>
+                    {roomData?.membersWithDetails && roomData.membersWithDetails.length > 0 ? (
+                      roomData.membersWithDetails.map((member) => (
+                        <div
+                          key={member.genID}
+                          className="flex items-center justify-between bg-accent/50 rounded p-2"
+                        >
+                          <div>
+                            <p className="font-semibold text-sm">{member.name}</p>
+                            <p className="text-muted-foreground text-xs">ID: {member.genID}</p>
+                          </div>
+                          {member.isHost && (
+                            <span className="px-2 py-1 bg-yellow-500 text-white text-xs font-bold rounded">
+                              Host
+                            </span>
+                          )}
                         </div>
-                        {member.isHost && (
-                          <span className="px-2 py-1 bg-yellow-500 text-white text-xs font-bold rounded">
-                            Host
-                          </span>
-                        )}
-                      </div>
-                    ))}
+                      ))
+                    ) : (
+                      <p className="text-muted-foreground text-sm text-center">No members yet</p>
+                    )}
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Screen Share Card */}
-            <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 space-y-4">
-              <h3 className="text-xl font-bold text-white">Screen Share</h3>
+            <div className="bg-card border rounded-lg p-6 space-y-4">
+              <h3 className="text-xl font-semibold">Screen Share</h3>
 
               {error && (
-                <div className="bg-red-500/20 border border-red-500 rounded-lg p-3">
-                  <p className="text-red-200 text-sm">{error}</p>
+                <div className="bg-destructive/10 border border-destructive rounded-lg p-3">
+                  <p className="text-destructive text-sm">{error}</p>
                 </div>
               )}
 
@@ -328,18 +370,25 @@ export default function HostPage() {
               >
                 {isSharing ? 'Stop Sharing' : 'Start Screen Share'}
               </button>
+
+              <button
+                onClick={handleLeaveRoom}
+                className="w-full px-4 py-3 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg transition-colors"
+              >
+                Leave Room
+              </button>
             </div>
 
             {/* Controls Card */}
-            <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 space-y-6">
+            <div className="bg-card border rounded-lg p-6 space-y-6">
               {/* Header */}
               <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-white">Controls</h2>
+                <h2 className="text-2xl font-semibold">Controls</h2>
                 <button
                   onClick={() => setShowSettings(!showSettings)}
-                  className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                  className="p-2 hover:bg-accent rounded-lg transition-colors"
                 >
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
@@ -350,13 +399,13 @@ export default function HostPage() {
               <AnimatePresence>
                 {showSettings && (
                   <motion.div
-                    initial={{ height: 0 }}
-                    animate={{ height: 'auto' }}
-                    exit={{ height: 0 }}
-                    className="bg-white/10 rounded-lg p-4 space-y-4"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="bg-accent rounded-lg p-4 space-y-4"
                   >
                     <div>
-                      <label className="text-white text-sm font-medium block mb-2">
+                      <label className="text-sm font-medium block mb-2">
                         Spin Duration: {spinDuration}s
                       </label>
                       <input
@@ -403,27 +452,27 @@ export default function HostPage() {
 
               {/* Members List */}
               <div className="space-y-2 max-h-96 overflow-y-auto">
-                <h3 className="text-white text-sm font-medium">
+                <h3 className="text-sm font-medium">
                   Members for Spinning ({items.filter(i => i.visible).length}/{items.length} visible)
                 </h3>
                 {items.map((item) => (
                   <div
                     key={item.id}
-                    className={`flex items-center gap-3 p-3 rounded-lg transition-all ${item.visible ? 'bg-white/20' : 'bg-white/5 opacity-50'
+                    className={`flex items-center gap-3 p-3 rounded-lg transition-all ${item.visible ? 'bg-accent' : 'bg-accent/30 opacity-50'
                       }`}
                   >
                     <div
                       className="w-6 h-6 rounded-full shrink-0"
                       style={{ backgroundColor: item.color }}
                     />
-                    <span className="flex-1 text-white font-medium truncate">{item.text}</span>
-                    <span className="text-white/60 text-xs">ID: {item.id}</span>
+                    <span className="flex-1 font-medium truncate">{item.text}</span>
+                    <span className="text-muted-foreground text-xs">ID: {item.id}</span>
                     <button
                       onClick={() => toggleVisibility(item.id)}
-                      className="p-1 hover:bg-white/10 rounded transition-colors"
+                      className="p-1 hover:bg-accent rounded transition-colors"
                       title={item.visible ? 'Hide from spin' : 'Show in spin'}
                     >
-                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         {item.visible ? (
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                         ) : (
@@ -469,13 +518,13 @@ export default function HostPage() {
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.8, opacity: 0 }}
-              className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl"
+              className="bg-card border rounded-2xl p-8 max-w-md w-full shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="text-center space-y-6">
                 <div className="text-6xl">🎉</div>
-                <h2 className="text-3xl font-bold text-gray-800">Winner!</h2>
-                <div className="text-4xl font-bold text-purple-600 py-6 bg-purple-100 rounded-xl">
+                <h2 className="text-3xl font-bold">Winner!</h2>
+                <div className="text-4xl font-bold text-primary py-6 bg-accent rounded-xl">
                   {result}
                 </div>
                 <div className="flex gap-3">
@@ -487,14 +536,14 @@ export default function HostPage() {
                   </button>
                   <button
                     onClick={spinAgain}
-                    className="flex-1 px-6 py-3 bg-purple-600 text-white font-semibold rounded-xl hover:bg-purple-700 transition-colors"
+                    className="flex-1 px-6 py-3 bg-primary text-primary-foreground font-semibold rounded-xl hover:bg-primary/90 transition-colors"
                   >
                     Spin Again
                   </button>
                 </div>
                 <button
                   onClick={() => setResult(null)}
-                  className="text-gray-500 hover:text-gray-700 text-sm"
+                  className="text-muted-foreground hover:text-foreground text-sm"
                 >
                   Close
                 </button>
@@ -504,83 +553,6 @@ export default function HostPage() {
         )}
       </AnimatePresence>
 
-      {/* QR Code Share Modal */}
-      <AnimatePresence>
-        {showShareModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-            onClick={() => setShowShareModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="text-center space-y-6">
-                <h2 className="text-3xl font-bold text-gray-800">Share Room</h2>
-
-                {/* QR Code */}
-                <div className="bg-white p-6 rounded-xl border-4 border-purple-500 inline-block">
-                  <QRCodeSVG
-                    value={getRoomLink()}
-                    size={200}
-                    level="H"
-                    includeMargin={true}
-                  />
-                </div>
-
-                {/* Room ID Display */}
-                <div className="space-y-2">
-                  <p className="text-sm text-gray-600 font-semibold">Room ID</p>
-                  <div className="bg-gray-100 px-4 py-3 rounded-lg">
-                    <p className="font-mono font-bold text-lg text-purple-600">{getCurrentRoomId()}</p>
-                  </div>
-                </div>
-
-                {/* Room Link Display */}
-                <div className="space-y-2">
-                  <p className="text-sm text-gray-600 font-semibold">Room Link</p>
-                  <div className="bg-gray-100 px-4 py-3 rounded-lg break-all">
-                    <p className="text-sm text-gray-700">{getRoomLink()}</p>
-                  </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex gap-3">
-                  <button
-                    onClick={copyRoomId}
-                    className="flex-1 px-6 py-3 bg-purple-500 text-white font-semibold rounded-xl hover:bg-purple-600 transition-colors"
-                  >
-                    Copy ID
-                  </button>
-                  <button
-                    onClick={copyRoomLink}
-                    className="flex-1 px-6 py-3 bg-blue-500 text-white font-semibold rounded-xl hover:bg-blue-600 transition-colors"
-                  >
-                    Copy Link
-                  </button>
-                </div>
-
-                <button
-                  onClick={() => setShowShareModal(false)}
-                  className="text-gray-500 hover:text-gray-700 text-sm"
-                >
-                  Close
-                </button>
-
-                <p className="text-xs text-gray-500">
-                  Scan the QR code or share the link/ID with viewers to join this room
-                </p>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   )
 }
