@@ -2,9 +2,15 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { MessageCircle, Send } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import EmojiPickerPopover from './EmojiPickerPopover'
+import MessageReactionPicker from './MessageReactionPicker'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { ScrollArea } from './ui/scroll-area'
+
+export interface MessageReaction {
+  emoji: string
+  userIds: string[]
+}
 
 export interface ChatMessage {
   id: string
@@ -12,6 +18,7 @@ export interface ChatMessage {
   userName: string
   message: string
   timestamp: number
+  reactions?: MessageReaction[]
 }
 
 interface ChatViewProps {
@@ -20,6 +27,7 @@ interface ChatViewProps {
   currentUserName: string
   messages: ChatMessage[]
   onSendMessage: (message: string) => void
+  onReactToMessage?: (messageId: string, emoji: string) => void
   isConnected: boolean
 }
 
@@ -28,6 +36,7 @@ export default function ChatView({
   currentUserId,
   messages,
   onSendMessage,
+  onReactToMessage,
   isConnected
 }: ChatViewProps) {
   const [inputMessage, setInputMessage] = useState('')
@@ -91,26 +100,53 @@ export default function ChatView({
                   transition={{ duration: 0.2 }}
                   className={`flex ${isOwnMessage(msg.userId) ? 'justify-end' : 'justify-start'}`}
                 >
-                  <div
-                    className={`max-w-[80%] rounded-lg px-3 py-2 ${isOwnMessage(msg.userId)
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-accent'
-                      }`}
-                  >
-                    {!isOwnMessage(msg.userId) && (
-                      <p className="text-xs font-semibold mb-1 opacity-80">
-                        {msg.userName}
-                      </p>
-                    )}
-                    <p className="text-sm wrap-break-words">{msg.message}</p>
-                    <p
-                      className={`text-xs mt-1 ${isOwnMessage(msg.userId)
-                        ? 'text-primary-foreground/60'
-                        : 'text-muted-foreground'
+                  <div className={`group flex items-end gap-1 ${isOwnMessage(msg.userId) ? 'flex-row-reverse' : 'flex-row'}`}>
+                    <div
+                      className={`max-w-[80%] rounded-lg px-3 py-2 ${isOwnMessage(msg.userId)
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-accent'
                         }`}
                     >
-                      {formatTime(msg.timestamp)}
-                    </p>
+                      {!isOwnMessage(msg.userId) && (
+                        <p className="text-xs font-semibold mb-1 opacity-80">
+                          {msg.userName}
+                        </p>
+                      )}
+                      <p className="text-sm wrap-break-words">{msg.message}</p>
+                      <p
+                        className={`text-xs mt-1 ${isOwnMessage(msg.userId)
+                          ? 'text-primary-foreground/60'
+                          : 'text-muted-foreground'
+                          }`}
+                      >
+                        {formatTime(msg.timestamp)}
+                      </p>
+                      {/* Reactions display */}
+                      {msg.reactions && msg.reactions.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1.5 -mb-1">
+                          {msg.reactions.map((reaction) => (
+                            <button
+                              key={reaction.emoji}
+                              type="button"
+                              onClick={() => onReactToMessage?.(msg.id, reaction.emoji)}
+                              className={`inline-flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded-full border transition-colors ${
+                                reaction.userIds.includes(currentUserId)
+                                  ? 'bg-primary/20 border-primary/40'
+                                  : 'bg-background/50 border-border hover:bg-background/80'
+                              }`}
+                            >
+                              <span>{reaction.emoji}</span>
+                              <span className="text-[10px] opacity-70">{reaction.userIds.length}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    {/* Reaction picker button */}
+                    <MessageReactionPicker
+                      onReactionSelect={(emoji) => onReactToMessage?.(msg.id, emoji)}
+                      disabled={!isConnected}
+                    />
                   </div>
                 </motion.div>
               ))}

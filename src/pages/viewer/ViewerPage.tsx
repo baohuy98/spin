@@ -75,7 +75,7 @@ export default function ViewerPage() {
     const videoRef = useRef<HTMLVideoElement>(null)
 
     // Socket.io for room management
-    const { socket, isConnected, roomData, error, clearError, joinRoom, onSpinResult, isRoomClosed, messages, sendChatMessage } = useSocket()
+    const { socket, isConnected, roomData, error, clearError, joinRoom, onSpinResult, isRoomClosed, messages, sendChatMessage, reactToMessage } = useSocket()
 
     // WebRTC for receiving screen share
     const { remoteStream } = useWebRTC({
@@ -293,6 +293,11 @@ export default function ViewerPage() {
                                 onSendMessage={(message) => {
                                     if (roomId) {
                                         sendChatMessage(roomId, genID, genID, message)
+                                    }
+                                }}
+                                onReactToMessage={(messageId, emoji) => {
+                                    if (roomId) {
+                                        reactToMessage(roomId, messageId, genID, emoji)
                                     }
                                 }}
                                 isConnected={isConnected}

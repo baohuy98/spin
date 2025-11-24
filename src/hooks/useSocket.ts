@@ -24,6 +24,11 @@ interface SocketError {
   message: string
 }
 
+export interface MessageReaction {
+  emoji: string
+  userIds: string[]
+}
+
 export interface ChatMessage {
   id: string
   userId: string
@@ -31,6 +36,7 @@ export interface ChatMessage {
   message: string
   timestamp: number
   roomId: string
+  reactions?: MessageReaction[]
 }
 
 export function useSocket(options: UseSocketOptions = {}) {
@@ -194,6 +200,16 @@ export function useSocket(options: UseSocketOptions = {}) {
         console.log('Received chat history:', data)
         setMessages(data.messages)
       })
+
+      // Reaction events
+      newSocket.on('message-reaction-updated', (data: { messageId: string; reactions: MessageReaction[] }) => {
+        console.log('Received reaction update:', data)
+        setMessages(prev => prev.map(msg =>
+          msg.id === data.messageId
+            ? { ...msg, reactions: data.reactions }
+            : msg
+        ))
+      })
     }
 
     return () => {
@@ -268,6 +284,12 @@ export function useSocket(options: UseSocketOptions = {}) {
     }
   }
 
+  const reactToMessage = (roomId: string, messageId: string, userId: string, emoji: string) => {
+    if (socketRef.current) {
+      socketRef.current.emit('react-to-message', { roomId, messageId, userId, emoji })
+    }
+  }
+
   const clearError = () => {
     setError(null)
   }
@@ -285,6 +307,7 @@ export function useSocket(options: UseSocketOptions = {}) {
     onSpinResult,
     isRoomClosed,
     messages,
-    sendChatMessage
+    sendChatMessage,
+    reactToMessage
   }
 }
