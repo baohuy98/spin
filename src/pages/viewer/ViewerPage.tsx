@@ -14,8 +14,6 @@ export default function ViewerPage() {
     const location = useLocation()
     const [searchParams] = useSearchParams()
 
-    const genID = searchParams.get('genId') || ''
-
     // Get member from location state (logged-in user data from Home.tsx)
     const preSelectedMember = (location.state as { member?: Member })?.member
 
@@ -284,9 +282,9 @@ export default function ViewerPage() {
                             <h3 className="text-xl font-semibold mb-4">Participants</h3>
                             <div className="space-y-2 max-h-48 overflow-y-auto">
                                 {roomData?.members && roomData.members.length > 0 ? (
-                                    roomData.members.map((memberId, index) => (
+                                    roomData.membersWithDetails?.map((member, index) => (
                                         <div
-                                            key={memberId}
+                                            key={member.genID}
                                             className="flex items-center gap-3 bg-accent rounded-lg p-3"
                                         >
                                             <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-bold">
@@ -294,9 +292,9 @@ export default function ViewerPage() {
                                             </div>
                                             <div className="flex-1">
                                                 <p className="font-semibold text-sm truncate">
-                                                    {memberId === roomData.hostId ? '👑 Host' : `Viewer`}
+                                                    {member.genID === roomData.hostId ? `👑 ${member.name}` : member.name}
                                                 </p>
-                                                <p className="text-muted-foreground text-xs truncate">ID: {memberId}</p>
+                                                <p className="text-muted-foreground text-xs truncate">ID: {member.genID}</p>
                                             </div>
                                         </div>
                                     ))
@@ -323,17 +321,17 @@ export default function ViewerPage() {
                         <div className="flex-1 min-h-[400px]">
                             <ChatView
                                 roomId={roomId}
-                                currentUserId={genID}
-                                currentUserName={genID}
+                                currentUserId={viewerMember?.genID || ''}
+                                currentUserName={viewerMember?.name || ''}
                                 messages={messages}
                                 onSendMessage={(message) => {
                                     if (roomId) {
-                                        sendChatMessage(roomId, genID, genID, message)
+                                        sendChatMessage(roomId, viewerMember?.genID || '', viewerMember?.name || '', message)
                                     }
                                 }}
                                 onReactToMessage={(messageId, emoji) => {
                                     if (roomId) {
-                                        reactToMessage(roomId, messageId, genID, emoji)
+                                        reactToMessage(roomId, messageId, viewerMember?.genID || '', emoji)
                                     }
                                 }}
                                 isConnected={isConnected}
