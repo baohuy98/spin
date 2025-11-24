@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { MessageCircle, Send } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import EmojiPickerPopover from './EmojiPickerPopover'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { ScrollArea } from './ui/scroll-area'
@@ -122,19 +123,25 @@ export default function ChatView({
       {/* Input Area */}
       <div className="px-4 py-3 border-t">
         <form onSubmit={handleSendMessage} className="flex gap-2">
-          <Input
-            type="text"
-            placeholder={
-              isConnected
-                ? 'Type your message...'
-                : 'Connect to room to chat...'
-            }
-            value={inputMessage}
-            onChange={(e) => setInputMessage(e.target.value)}
-            disabled={!isConnected || !roomId}
-            className="flex-1"
-            maxLength={500}
-          />
+          <div className="relative flex-1">
+            <Input
+              type="text"
+              placeholder={
+                isConnected
+                  ? 'Type your message...'
+                  : 'Connect to room to chat...'
+              }
+              value={inputMessage}
+              onChange={(e) => setInputMessage(e.target.value)}
+              disabled={!isConnected || !roomId}
+              className="pr-10"
+              maxLength={500}
+            />
+            <EmojiPickerPopover
+              onEmojiSelect={(emoji) => setInputMessage((prev) => prev + emoji)}
+              disabled={!isConnected || !roomId}
+            />
+          </div>
           <Button
             type="submit"
             size="icon"

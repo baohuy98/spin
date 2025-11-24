@@ -1,13 +1,12 @@
 import ChatView from '@/components/ChatView'
 import { AnimatePresence, motion } from 'framer-motion'
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import SpinWheel from '../../components/SpinWheel'
 import { useSocket } from '../../hooks/useSocket'
 import { useWebRTC } from '../../hooks/useWebRTC'
 import type { Member } from '../../utils/interface/MemberInterface'
-import { toast } from 'sonner'
-import ChatView from '@/components/ChatView'
 
 interface WheelItem {
   id: string
@@ -486,7 +485,7 @@ export default function HostPage() {
             </div>
 
             {/* Chat & Comments Card */}
-            <div className="bg-white/10 backdrop-blur-md rounded-xl overflow-hidden min-h-[500px] flex flex-col">
+            <div className="bg-white/10 backdrop-blur-md rounded-xl h-[500px] flex flex-col">
               <ChatView
                 roomId={roomData?.roomId || null}
                 currentUserId={hostMember?.genID || ''}
