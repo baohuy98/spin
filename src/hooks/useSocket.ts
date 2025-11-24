@@ -66,6 +66,7 @@ export function useSocket(options: UseSocketOptions = {}) {
   })
   const [error, setError] = useState<string | null>(null)
   const [isRoomClosed, setIsRoomClosed] = useState(false)
+  const [isHostDisconnected, setIsHostDisconnected] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const pendingJoinRef = useRef<string | null>(null) // Track pending join request
 
@@ -107,6 +108,7 @@ export function useSocket(options: UseSocketOptions = {}) {
         setRoomData(data)
         sessionStorage.setItem('roomData', JSON.stringify(data))
         setIsRoomClosed(false) // Reset room closed state
+        setIsHostDisconnected(false) // Reset host disconnected state
         setError(null) // Clear any previous errors
         pendingJoinRef.current = null // Clear pending join
       })
@@ -115,6 +117,12 @@ export function useSocket(options: UseSocketOptions = {}) {
         console.log('Member joined:', data)
         setRoomData(prev => {
           if (prev) {
+            // Check if host rejoined
+            if (prev.hostId === data.memberId) {
+              console.log('Host rejoined the room')
+              setIsHostDisconnected(false)
+            }
+
             const updatedData = {
               ...prev,
               members: data.members,
@@ -133,10 +141,12 @@ export function useSocket(options: UseSocketOptions = {}) {
           if (prev) {
             // Check if the host is the one who left
             if (prev.hostId === data.memberId) {
-              console.log('Host left the room. Closing room.')
-              setIsRoomClosed(true)
-              sessionStorage.removeItem('roomData')
-              return null // Clear room data if host leaves
+              console.log('Host left the room. Marking as disconnected.')
+              setIsHostDisconnected(true)
+              // Do NOT close the room immediately, allow for reconnection
+              // setIsRoomClosed(true) 
+              // sessionStorage.removeItem('roomData')
+              // return null 
             }
             const updatedData = {
               ...prev,
@@ -284,6 +294,7 @@ export function useSocket(options: UseSocketOptions = {}) {
     emitSpinResult,
     onSpinResult,
     isRoomClosed,
+    isHostDisconnected,
     messages,
     sendChatMessage
   }

@@ -5,13 +5,15 @@ interface UseWebRTCOptions {
   socket: Socket | null
   roomId: string | null
   isHost: boolean
+  isConnected?: boolean
 }
 
-export function useWebRTC({ socket, roomId, isHost }: UseWebRTCOptions) {
+export function useWebRTC({ socket, roomId, isHost, isConnected = false }: UseWebRTCOptions) {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null)
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null)
   const [isSharing, setIsSharing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [connectionState, setConnectionState] = useState<RTCPeerConnectionState>('new')
 
   // For host: maintain multiple peer connections (one per viewer)
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map())
@@ -20,6 +22,8 @@ export function useWebRTC({ socket, roomId, isHost }: UseWebRTCOptions) {
   const localStreamRef = useRef<MediaStream | null>(null)
   // Track viewers who joined before screen sharing started
   const pendingViewersRef = useRef<Set<string>>(new Set())
+  // Queue for ICE candidates that arrive before remote description is set
+  const iceCandidatesQueueRef = useRef<RTCIceCandidateInit[]>([])
 
   // WebRTC configuration
   const configuration: RTCConfiguration = {
@@ -61,7 +65,13 @@ export function useWebRTC({ socket, roomId, isHost }: UseWebRTCOptions) {
         }
       } else {
         if (peerConnectionRef.current && data.candidate) {
-          await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(data.candidate))
+          const pc = peerConnectionRef.current
+          if (pc.remoteDescription) {
+            await pc.addIceCandidate(new RTCIceCandidate(data.candidate))
+          } else {
+            console.log('[VIEWER] Queueing ICE candidate (remote description not set)')
+            iceCandidatesQueueRef.current.push(data.candidate)
+          }
         }
       }
     })
@@ -126,8 +136,8 @@ export function useWebRTC({ socket, roomId, isHost }: UseWebRTCOptions) {
     })
 
     // For viewer: request stream when WebRTC is ready (handles page reload timing issue)
-    if (!isHost && !peerConnectionRef.current) {
-      console.log('[VIEWER] WebRTC ready, requesting stream from host')
+    if (!isHost && !peerConnectionRef.current && isConnected) {
+      console.log('[VIEWER] WebRTC ready and socket connected, requesting stream from host')
       socket.emit('request-stream', { roomId })
     }
 
@@ -141,7 +151,7 @@ export function useWebRTC({ socket, roomId, isHost }: UseWebRTCOptions) {
       socket.off('host-reconnected')
       socket.off('request-stream')
     }
-  }, [socket, roomId, isHost])
+  }, [socket, roomId, isHost, isConnected])
 
   const startScreenShare = async () => {
     if (!isHost) {
@@ -312,6 +322,7 @@ export function useWebRTC({ socket, roomId, isHost }: UseWebRTCOptions) {
     // Monitor connection state
     peerConnection.onconnectionstatechange = () => {
       console.log('[VIEWER] Peer connection state:', peerConnection.connectionState)
+      setConnectionState(peerConnection.connectionState)
       if (peerConnection.connectionState === 'failed') {
         console.error('[VIEWER] Connection failed')
         setError('WebRTC connection failed')
@@ -324,6 +335,16 @@ export function useWebRTC({ socket, roomId, isHost }: UseWebRTCOptions) {
     }
 
     await peerConnection.setRemoteDescription(new RTCSessionDescription(offer))
+
+    // Process queued ICE candidates
+    if (iceCandidatesQueueRef.current.length > 0) {
+      console.log('[VIEWER] Processing queued ICE candidates:', iceCandidatesQueueRef.current.length)
+      for (const candidate of iceCandidatesQueueRef.current) {
+        await peerConnection.addIceCandidate(new RTCIceCandidate(candidate))
+      }
+      iceCandidatesQueueRef.current = []
+    }
+
     const answer = await peerConnection.createAnswer()
     await peerConnection.setLocalDescription(answer)
 
@@ -356,6 +377,7 @@ export function useWebRTC({ socket, roomId, isHost }: UseWebRTCOptions) {
     remoteStream,
     isSharing,
     error,
+    connectionState,
     startScreenShare,
     stopScreenShare
   }

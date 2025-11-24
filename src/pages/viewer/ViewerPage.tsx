@@ -24,7 +24,27 @@ export default function ViewerPage() {
         const urlRoomId = searchParams.get('roomId')
         const stateRoomId = (location.state as { roomId?: string })?.roomId
         const savedRoomData = sessionStorage.getItem('roomData')
-        const sessionRoomId = savedRoomData ? JSON.parse(savedRoomData).roomId : ''
+        let sessionRoomId = ''
+
+        if (savedRoomData) {
+            try {
+                const parsed = JSON.parse(savedRoomData)
+                sessionRoomId = parsed.roomId
+            } catch {
+                // Invalid data
+            }
+        }
+
+        // If we have a URL room ID and it's different from the session room ID,
+        // we should prioritize the URL and clear the stale session data
+        // to prevent useSocket from auto-joining the old room
+        if (urlRoomId && sessionRoomId && urlRoomId !== sessionRoomId) {
+            console.log('[ViewerPage] URL roomId differs from session roomId, clearing stale session data')
+            sessionStorage.removeItem('roomData')
+            sessionStorage.removeItem('roomDataTimestamp')
+            sessionRoomId = ''
+        }
+
         return urlRoomId || stateRoomId || sessionRoomId || ''
     })
 
@@ -75,14 +95,44 @@ export default function ViewerPage() {
     const videoRef = useRef<HTMLVideoElement>(null)
 
     // Socket.io for room management
-    const { socket, isConnected, roomData, error, clearError, joinRoom, onSpinResult, isRoomClosed, messages, sendChatMessage } = useSocket()
+    const { socket, isConnected, roomData, error, clearError, joinRoom, onSpinResult, isRoomClosed, isHostDisconnected, messages, sendChatMessage } = useSocket()
+
+    // Handle host disconnection/reconnection toasts
+    useEffect(() => {
+        if (isHostDisconnected) {
+            toast.warning('Host disconnected. Waiting for reconnection...', {
+                duration: Infinity, // Keep showing until reconnected
+                id: 'host-disconnect-toast'
+            })
+        } else {
+            // Dismiss the warning toast if it exists
+            toast.dismiss('host-disconnect-toast')
+
+            // If we were previously disconnected (implied by this running when isHostDisconnected becomes false),
+            // we could show a success message, but we need to be careful not to show it on initial load.
+            // For now, the dismissal of the warning is good enough, or we can rely on 'host-reconnected' event.
+        }
+    }, [isHostDisconnected])
 
     // WebRTC for receiving screen share
-    const { remoteStream } = useWebRTC({
+    const { remoteStream, connectionState } = useWebRTC({
         socket,
         roomId: roomData?.roomId || null,
-        isHost: false
+        isHost: false,
+        isConnected
     })
+
+    // Monitor WebRTC connection state for host disconnection
+    useEffect(() => {
+        if (connectionState === 'disconnected' || connectionState === 'failed') {
+            toast.warning('Host disconnected. Waiting for reconnection...', {
+                duration: Infinity,
+                id: 'host-disconnect-toast'
+            })
+        } else if (connectionState === 'connected') {
+            toast.dismiss('host-disconnect-toast')
+        }
+    }, [connectionState])
 
     const connectedRoomID = roomData?.roomId;
     useEffect(() => {
@@ -107,7 +157,7 @@ export default function ViewerPage() {
         if (socket) {
             socket.on('host-reconnected', () => {
                 console.log('[ViewerPage] Host reconnected, WebRTC will be reset')
-                toast.info('Host reconnected. Waiting for screen share...')
+                toast.success('Host reconnected!')
                 // WebRTC reset is handled in useWebRTC hook
             })
 
@@ -225,6 +275,7 @@ export default function ViewerPage() {
                                         ref={videoRef}
                                         autoPlay
                                         playsInline
+                                        muted
                                         className="w-full h-full object-contain"
                                     />
                                 ) : (
