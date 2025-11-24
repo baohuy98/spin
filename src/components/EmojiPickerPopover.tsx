@@ -1,6 +1,7 @@
-import EmojiPicker, { Theme } from 'emoji-picker-react'
 import type { EmojiClickData } from 'emoji-picker-react'
+import EmojiPicker, { Theme } from 'emoji-picker-react'
 import { Smile } from 'lucide-react'
+import { useTheme } from './ThemeProvider'
 import { Button } from './ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 
@@ -16,6 +17,9 @@ export default function EmojiPickerPopover({
   const handleEmojiClick = (emojiData: EmojiClickData) => {
     onEmojiSelect(emojiData.emoji)
   }
+
+  const { theme } = useTheme();
+
 
   return (
     <Popover>
@@ -33,7 +37,7 @@ export default function EmojiPickerPopover({
       <PopoverContent className="w-fit p-0" align="end">
         <EmojiPicker
           onEmojiClick={handleEmojiClick}
-          theme={Theme.AUTO}
+          theme={theme === 'light' ? Theme.LIGHT : Theme.DARK}
           searchPlaceHolder="Search emoji..."
           width={350}
           height={400}

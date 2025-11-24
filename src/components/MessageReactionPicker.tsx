@@ -1,7 +1,8 @@
-import EmojiPicker, { EmojiStyle, Theme } from 'emoji-picker-react'
 import type { EmojiClickData } from 'emoji-picker-react'
+import EmojiPicker, { EmojiStyle, Theme } from 'emoji-picker-react'
 import { SmilePlus } from 'lucide-react'
 import { useState } from 'react'
+import { useTheme } from './ThemeProvider'
 import { Button } from './ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 
@@ -20,6 +21,7 @@ export default function MessageReactionPicker({
     onReactionSelect(emojiData.emoji)
     setOpen(false)
   }
+  const { theme } = useTheme();
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -34,10 +36,10 @@ export default function MessageReactionPicker({
           <SmilePlus className="w-3.5 h-3.5 text-muted-foreground" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-fit p-0" align="center" side="top">
+      <PopoverContent className="w-fit p-0 rounded-full" align="center" side="top">
         <EmojiPicker
           onEmojiClick={handleEmojiClick}
-          theme={Theme.AUTO}
+          theme={theme === 'light' ? Theme.LIGHT : Theme.DARK}
           emojiStyle={EmojiStyle.NATIVE}
           reactionsDefaultOpen={true}
           allowExpandReactions={true}
