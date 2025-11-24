@@ -2,12 +2,12 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { AlertCircle, CheckCircle2, Loader2, XCircle } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { toast } from 'sonner'
 import ChatView from '../../components/ChatView'
 import { Alert, AlertDescription } from '../../components/ui/alert'
 import { useSocket } from '../../hooks/useSocket'
 import { useWebRTC } from '../../hooks/useWebRTC'
 import type { Member } from '../../utils/interface/MemberInterface'
-import { toast } from 'sonner'
 
 export default function ViewerPage() {
     const navigate = useNavigate()
@@ -48,7 +48,6 @@ export default function ViewerPage() {
         return urlRoomId || stateRoomId || sessionRoomId || ''
     })
 
-    const [manualRoomId, setManualRoomId] = useState(roomId || '')
 
     // Use the logged-in member data directly - no lookup in memberList
     const [viewerMember, setViewerMember] = useState<Member | null>(() => {
@@ -95,7 +94,7 @@ export default function ViewerPage() {
     const videoRef = useRef<HTMLVideoElement>(null)
 
     // Socket.io for room management
-    const { socket, isConnected, roomData, error, clearError, joinRoom, onSpinResult, isRoomClosed, isHostDisconnected, messages, sendChatMessage, reactToMessage } = useSocket()
+    const { socket, isConnected, roomData, error, joinRoom, onSpinResult, isRoomClosed, isHostDisconnected, messages, sendChatMessage, reactToMessage } = useSocket()
 
     // Handle host disconnection/reconnection toasts
     useEffect(() => {
@@ -181,20 +180,6 @@ export default function ViewerPage() {
         }
     }, [remoteStream])
 
-    const handleJoinRoom = () => {
-        if (!manualRoomId.trim()) {
-            alert('Please enter a Room ID')
-            return
-        }
-        if (!viewerMember) {
-            alert('Please enter a valid member ID')
-            return
-        }
-        clearError()
-        setRoomId(manualRoomId)
-        joinRoom(manualRoomId, viewerMember.genID, viewerMember.name)
-        setHasJoined(true)
-    }
 
     // Handle errors - reset join state when room not found
     useEffect(() => {
