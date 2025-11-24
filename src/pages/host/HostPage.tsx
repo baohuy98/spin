@@ -485,7 +485,7 @@ export default function HostPage() {
             </div>
 
             {/* Chat & Comments Card */}
-            <div className="bg-white/10 backdrop-blur-md rounded-xl overflow-hidden min-h-[500px] flex flex-col">
+            <div className="bg-white/10 backdrop-blur-md rounded-xl h-[500px] flex flex-col">
               <ChatView
                 roomId={roomData?.roomId || null}
                 currentUserId={hostMember?.genID || ''}
