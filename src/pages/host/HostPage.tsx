@@ -61,7 +61,8 @@ export default function HostPage() {
   const { localStream, isSharing, error, startScreenShare, stopScreenShare } = useWebRTC({
     socket,
     roomId: roomData?.roomId || null,
-    isHost: true
+    isHost: true,
+    isConnected
   })
 
   // Create room on mount - reuse existing room if available for stable room ID
