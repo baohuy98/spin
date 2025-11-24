@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { AlertCircle, CheckCircle2, Loader2, XCircle } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Loader2, Maximize, Minimize, XCircle } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -88,8 +88,10 @@ export default function ViewerPage() {
     }, [viewerMember, navigate])
 
     const [spinResult, setSpinResult] = useState<string | null>(null)
+    const [isFullscreen, setIsFullscreen] = useState(false)
 
     const videoRef = useRef<HTMLVideoElement>(null)
+    const videoContainerRef = useRef<HTMLDivElement>(null)
 
     // Socket.io for room management
     const { socket, isConnected, roomData, error, joinRoom, onSpinResult, isRoomClosed, isHostDisconnected, messages, sendChatMessage, reactToMessage } = useSocket()
@@ -178,6 +180,29 @@ export default function ViewerPage() {
         }
     }, [remoteStream])
 
+    // Toggle fullscreen mode
+    const toggleFullscreen = async () => {
+        if (!videoContainerRef.current) return
+
+        if (!document.fullscreenElement) {
+            await videoContainerRef.current.requestFullscreen()
+        } else {
+            await document.exitFullscreen()
+        }
+    }
+
+    // Listen for fullscreen change events
+    useEffect(() => {
+        const handleFullscreenChange = () => {
+            setIsFullscreen(!!document.fullscreenElement)
+        }
+
+        document.addEventListener('fullscreenchange', handleFullscreenChange)
+        return () => {
+            document.removeEventListener('fullscreenchange', handleFullscreenChange)
+        }
+    }, [])
+
 
     // Handle errors - reset join state when room not found
     useEffect(() => {
@@ -196,7 +221,7 @@ export default function ViewerPage() {
 
     // Main viewer interface
     return (
-        <div className="min-h-screen bg-background pt-20 pb-10">
+        <div className="min-h-screen bg-background pt-10 pb-10">
             <div className="container mx-auto px-4 h-[calc(100vh-120px)]">
                 <div className="flex flex-col lg:flex-row gap-6 h-full">
                     {/* Left Panel - Screen Share */}
@@ -252,17 +277,29 @@ export default function ViewerPage() {
                             </div>
 
 
-                            <div className="flex-1 relative rounded-lg overflow-hidden bg-black">
+                            <div
+                                ref={videoContainerRef}
+                                className="flex-1 relative rounded-lg overflow-hidden min-h-50 bg-black group"
+                            >
                                 {remoteStream ? (
-                                    <video
-                                        ref={videoRef}
-                                        autoPlay
-                                        playsInline
-                                        muted
-                                        className="w-full h-full object-contain"
-                                    />
+                                    <>
+                                        <video
+                                            ref={videoRef}
+                                            autoPlay
+                                            playsInline
+                                            muted
+                                            className="w-full h-full object-contain"
+                                        />
+                                        <button
+                                            onClick={toggleFullscreen}
+                                            className="absolute bottom-4 right-4 p-2 bg-black/50 hover:bg-black/70 rounded-lg text-white md:opacity-0 group-hover:opacity-100 transition-opacity"
+                                            title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+                                        >
+                                            {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
+                                        </button>
+                                    </>
                                 ) : (
-                                    <div className="absolute inset-0 flex items-center justify-center">
+                                    <div className="absolute inset-0 flex  items-center justify-center">
                                         <div className="text-center space-y-4">
                                             <div className="text-6xl opacity-30">📺</div>
                                             <p className="text-muted-foreground text-lg font-medium">
