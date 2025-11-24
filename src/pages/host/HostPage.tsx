@@ -44,7 +44,7 @@ export default function HostPage() {
   const roomCreatedRef = useRef(false)
 
   // Socket.io for room management
-  const { socket, isConnected, roomData, createRoom, emitSpinResult, messages, sendChatMessage } = useSocket()
+  const { socket, isConnected, roomData, createRoom, emitSpinResult, messages, sendChatMessage, reactToMessage } = useSocket()
 
   // Generate shareable room link - relies on roomData from the socket
   const getRoomLink = () => {
@@ -495,6 +495,11 @@ export default function HostPage() {
                 onSendMessage={(message) => {
                   if (roomData?.roomId && hostMember) {
                     sendChatMessage(roomData.roomId, hostMember.genID, hostMember.name, message)
+                  }
+                }}
+                onReactToMessage={(messageId, emoji) => {
+                  if (roomData?.roomId && hostMember) {
+                    reactToMessage(roomData.roomId, messageId, hostMember.genID, emoji)
                   }
                 }}
                 isConnected={isConnected}

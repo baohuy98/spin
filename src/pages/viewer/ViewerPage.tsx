@@ -95,7 +95,7 @@ export default function ViewerPage() {
     const videoRef = useRef<HTMLVideoElement>(null)
 
     // Socket.io for room management
-    const { socket, isConnected, roomData, error, clearError, joinRoom, onSpinResult, isRoomClosed, isHostDisconnected, messages, sendChatMessage } = useSocket()
+    const { socket, isConnected, roomData, error, clearError, joinRoom, onSpinResult, isRoomClosed, isHostDisconnected, messages, sendChatMessage, reactToMessage } = useSocket()
 
     // Handle host disconnection/reconnection toasts
     useEffect(() => {
@@ -344,6 +344,11 @@ export default function ViewerPage() {
                                 onSendMessage={(message) => {
                                     if (roomId) {
                                         sendChatMessage(roomId, genID, genID, message)
+                                    }
+                                }}
+                                onReactToMessage={(messageId, emoji) => {
+                                    if (roomId) {
+                                        reactToMessage(roomId, messageId, genID, emoji)
                                     }
                                 }}
                                 isConnected={isConnected}
