@@ -32,16 +32,23 @@ export default function ViewerPage() {
 
     // Use the logged-in member data directly - no lookup in memberList
     const [viewerMember, setViewerMember] = useState<Member | null>(() => {
-        // Try to restore from sessionStorage if available
+        // Priority: 1. Current login data (preSelectedMember), 2. sessionStorage (for page reload)
+        if (preSelectedMember) {
+            // Clear old sessionStorage if we have fresh login data
+            sessionStorage.setItem('viewerMember', JSON.stringify(preSelectedMember))
+            return preSelectedMember
+        }
+
+        // Fallback to sessionStorage for page reload scenario
         const savedMember = sessionStorage.getItem('viewerMember')
         if (savedMember) {
             try {
                 return JSON.parse(savedMember)
             } catch {
-                return preSelectedMember || null
+                return null
             }
         }
-        return preSelectedMember || null
+        return null
     })
 
     const [hasJoined, setHasJoined] = useState(false)
@@ -98,13 +105,10 @@ export default function ViewerPage() {
     // Listen for host reconnection (when host reloads page)
     useEffect(() => {
         if (socket) {
-            socket.on('host-reconnected', (data: { hostId: string; hostSocketId: string }) => {
-                console.log('[ViewerPage] Host reconnected, refreshing connection...')
-                toast.info('Host reconnected. Refreshing screen share...')
-                // Reload page to re-establish WebRTC connection
-                setTimeout(() => {
-                    window.location.reload()
-                }, 500)
+            socket.on('host-reconnected', () => {
+                console.log('[ViewerPage] Host reconnected, WebRTC will be reset')
+                toast.info('Host reconnected. Waiting for screen share...')
+                // WebRTC reset is handled in useWebRTC hook
             })
 
             return () => {
@@ -113,15 +117,12 @@ export default function ViewerPage() {
         }
     }, [socket])
 
-    // Redirect if room is closed
-    useEffect(() => {
-        if (isRoomClosed) {
-            toast.error('The host has left, and the room has been closed.')
-            sessionStorage.removeItem('roomData')
-            sessionStorage.removeItem('viewerMember')
-            setTimeout(() => navigate('/'), 2000)
-        }
-    }, [isRoomClosed, navigate])
+    // Handle room closed - show modal instead of auto-redirect
+    const handleRoomClosedConfirm = () => {
+        sessionStorage.removeItem('roomData')
+        sessionStorage.removeItem('viewerMember')
+        navigate('/')
+    }
 
     // Attach remote stream to video element
     useEffect(() => {
@@ -320,6 +321,39 @@ export default function ViewerPage() {
                                 <p className="text-gray-500 text-sm">This message will disappear in 5 seconds</p>
                             </div>
                         </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Room Closed Modal */}
+            <AnimatePresence>
+                {isRoomClosed && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+                    >
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.9 }}
+                            className="bg-white rounded-2xl p-8 shadow-2xl max-w-md mx-4"
+                        >
+                            <div className="text-center space-y-6">
+                                <div className="text-6xl">👋</div>
+                                <h2 className="text-2xl font-bold text-gray-800">Room Closed</h2>
+                                <p className="text-gray-600">
+                                    The host has left and the room has been closed.
+                                </p>
+                                <button
+                                    onClick={handleRoomClosedConfirm}
+                                    className="w-full px-6 py-3 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 transition-colors"
+                                >
+                                    OK
+                                </button>
+                            </div>
+                        </motion.div>
                     </motion.div>
                 )}
             </AnimatePresence>

@@ -127,7 +127,7 @@ export function useSocket(options: UseSocketOptions = {}) {
         })
       })
 
-      newSocket.on('member-left', (data: { memberId: string; members: string[] }) => {
+      newSocket.on('member-left', (data: { memberId: string; members: string[]; membersWithDetails?: MemberDetail[] }) => {
         console.log('Member left:', data)
         setRoomData(prev => {
           if (prev) {
@@ -138,7 +138,11 @@ export function useSocket(options: UseSocketOptions = {}) {
               sessionStorage.removeItem('roomData')
               return null // Clear room data if host leaves
             }
-            const updatedData = { ...prev, members: data.members }
+            const updatedData = {
+              ...prev,
+              members: data.members,
+              membersWithDetails: data.membersWithDetails || prev.membersWithDetails
+            }
             sessionStorage.setItem('roomData', JSON.stringify(updatedData))
             return updatedData
           }
@@ -157,13 +161,26 @@ export function useSocket(options: UseSocketOptions = {}) {
         }
       })
 
-      // Re-join room on reconnection if room data exists
+      // Auto re-join room on reconnection if room data exists (for page reload)
       newSocket.on('connect', () => {
         const savedRoomData = sessionStorage.getItem('roomData')
-        if (savedRoomData) {
-          const parsedData: RoomData = JSON.parse(savedRoomData)
-          console.log('[useSocket] Reconnecting to room:', parsedData.roomId)
-          // Re-join logic will be handled in the component
+        const savedMember = sessionStorage.getItem('viewerMember')
+
+        if (savedRoomData && savedMember) {
+          try {
+            const parsedRoom: RoomData = JSON.parse(savedRoomData)
+            const parsedMember = JSON.parse(savedMember)
+
+            // Auto re-join the room immediately on socket connect
+            console.log('[useSocket] Auto re-joining room on reconnect:', parsedRoom.roomId, 'as', parsedMember.genID)
+            newSocket.emit('join-room', {
+              roomId: parsedRoom.roomId,
+              memberId: parsedMember.genID,
+              name: parsedMember.name
+            })
+          } catch (e) {
+            console.error('[useSocket] Failed to parse saved data for rejoin:', e)
+          }
         }
       })
 
