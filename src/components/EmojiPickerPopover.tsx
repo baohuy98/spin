@@ -1,5 +1,7 @@
-import { EmojiPicker } from 'frimousse'
+import type { EmojiClickData } from 'emoji-picker-react'
+import EmojiPicker, { Theme } from 'emoji-picker-react'
 import { Smile } from 'lucide-react'
+import { useTheme } from './ThemeProvider'
 import { Button } from './ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 
@@ -12,6 +14,13 @@ export default function EmojiPickerPopover({
   onEmojiSelect,
   disabled
 }: EmojiPickerPopoverProps) {
+  const handleEmojiClick = (emojiData: EmojiClickData) => {
+    onEmojiSelect(emojiData.emoji)
+  }
+
+  const { theme } = useTheme();
+
+
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -26,42 +35,13 @@ export default function EmojiPickerPopover({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-fit p-0" align="end">
-        <EmojiPicker.Root
-          className="isolate flex h-[368px] w-fit flex-col bg-popover text-popover-foreground"
-          onEmojiSelect={(emoji) => onEmojiSelect(emoji.emoji)}
-        >
-          <EmojiPicker.Search
-            className="mx-2 mt-2 flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm outline-none placeholder:text-muted-foreground"
-            placeholder="Search emoji..."
-          />
-          <EmojiPicker.Viewport className="flex-1 overflow-y-auto p-2">
-            <EmojiPicker.Loading className="flex h-full items-center justify-center text-sm text-muted-foreground">
-              Loading…
-            </EmojiPicker.Loading>
-            <EmojiPicker.Empty className="flex h-full items-center justify-center text-sm text-muted-foreground">
-              No emoji found.
-            </EmojiPicker.Empty>
-            <EmojiPicker.List
-              className="select-none"
-              components={{
-                CategoryHeader: ({ category }) => (
-                  <div className="px-1 pb-1.5 pt-2 text-xs font-medium text-muted-foreground">
-                    {category.label}
-                  </div>
-                ),
-                Emoji: ({ emoji, ...props }) => (
-                  <button
-                    type="button"
-                    className="flex h-8 w-8 items-center justify-center rounded text-lg hover:bg-accent"
-                    {...props}
-                  >
-                    {emoji.emoji}
-                  </button>
-                ),
-              }}
-            />
-          </EmojiPicker.Viewport>
-        </EmojiPicker.Root>
+        <EmojiPicker
+          onEmojiClick={handleEmojiClick}
+          theme={theme === 'light' ? Theme.LIGHT : Theme.DARK}
+          searchPlaceHolder="Search emoji..."
+          width={350}
+          height={400}
+        />
       </PopoverContent>
     </Popover>
   )
