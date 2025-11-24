@@ -32,6 +32,132 @@ export function useWebRTC({ socket, roomId, isHost, isConnected = false }: UseWe
       { urls: 'stun:stun1.l.google.com:19302' }
     ]
   }
+  const handleReceiveOffer = async (offer: RTCSessionDescriptionInit) => {
+    if (!socket || !roomId) return
+
+    console.log('Viewer handling offer')
+
+    // Close existing peer connection if any (host might have restarted sharing)
+    if (peerConnectionRef.current) {
+      console.log('Closing existing peer connection before creating new one')
+      peerConnectionRef.current.close()
+      peerConnectionRef.current = null
+    }
+
+    const peerConnection = new RTCPeerConnection(configuration)
+    peerConnectionRef.current = peerConnection
+
+    // Handle remote stream
+    peerConnection.ontrack = (event) => {
+      console.log('Received remote track:', event.streams[0])
+      setRemoteStream(event.streams[0])
+    }
+
+    // Handle ICE candidates
+    peerConnection.onicecandidate = (event) => {
+      if (event.candidate && socket) {
+        console.log('Sending ICE candidate to host')
+        socket.emit('ice-candidate', {
+          roomId,
+          candidate: event.candidate.toJSON()
+        })
+      }
+    }
+
+    // Monitor connection state
+    peerConnection.onconnectionstatechange = () => {
+      console.log('[VIEWER] Peer connection state:', peerConnection.connectionState)
+      setConnectionState(peerConnection.connectionState)
+      if (peerConnection.connectionState === 'failed') {
+        console.error('[VIEWER] Connection failed')
+        setError('WebRTC connection failed')
+      }
+    }
+
+    // Monitor ICE connection state
+    peerConnection.oniceconnectionstatechange = () => {
+      console.log('[VIEWER] ICE connection state:', peerConnection.iceConnectionState)
+    }
+
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(offer))
+
+    // Process queued ICE candidates
+    if (iceCandidatesQueueRef.current.length > 0) {
+      console.log('[VIEWER] Processing queued ICE candidates:', iceCandidatesQueueRef.current.length)
+      for (const candidate of iceCandidatesQueueRef.current) {
+        await peerConnection.addIceCandidate(new RTCIceCandidate(candidate))
+      }
+      iceCandidatesQueueRef.current = []
+    }
+
+    const answer = await peerConnection.createAnswer()
+    await peerConnection.setLocalDescription(answer)
+
+    console.log('Sending answer to host')
+    socket.emit('answer', {
+      roomId,
+      answer: answer
+    })
+  }
+
+  const createPeerConnectionForViewer = async (viewerId: string, stream: MediaStream) => {
+    if (!socket || !roomId) return
+
+    // Check if peer connection already exists for this viewer
+    const existingConnection = peerConnectionsRef.current.get(viewerId)
+    if (existingConnection) {
+      console.log('Peer connection already exists for viewer:', viewerId, '- closing old connection')
+      existingConnection.close()
+      peerConnectionsRef.current.delete(viewerId)
+    }
+
+    console.log('Creating peer connection for viewer:', viewerId)
+
+    const peerConnection = new RTCPeerConnection(configuration)
+    peerConnectionsRef.current.set(viewerId, peerConnection)
+
+    // Add tracks to peer connection
+    stream.getTracks().forEach(track => {
+      console.log('Adding track to peer connection:', track.kind)
+      peerConnection.addTrack(track, stream)
+    })
+
+    // Handle ICE candidates
+    peerConnection.onicecandidate = (event) => {
+      if (event.candidate && socket) {
+        console.log('Sending ICE candidate to viewer:', viewerId)
+        socket.emit('ice-candidate', {
+          roomId,
+          candidate: event.candidate.toJSON(),
+          to: viewerId
+        })
+      }
+    }
+
+    // Monitor connection state
+    peerConnection.onconnectionstatechange = () => {
+      console.log(`[HOST] Peer connection state with ${viewerId}:`, peerConnection.connectionState)
+      if (peerConnection.connectionState === 'failed') {
+        console.error(`[HOST] Connection failed with viewer ${viewerId}`)
+      }
+    }
+
+    // Monitor ICE connection state
+    peerConnection.oniceconnectionstatechange = () => {
+      console.log(`[HOST] ICE connection state with ${viewerId}:`, peerConnection.iceConnectionState)
+    }
+
+    // Create and send offer
+    const offer = await peerConnection.createOffer()
+    await peerConnection.setLocalDescription(offer)
+
+    console.log('Sending offer to viewer:', viewerId)
+    socket.emit('offer', {
+      roomId,
+      offer: offer,
+      to: viewerId
+    })
+  }
 
   useEffect(() => {
     if (!socket || !roomId) return
@@ -228,132 +354,9 @@ export function useWebRTC({ socket, roomId, isHost, isConnected = false }: UseWe
     }
   }
 
-  const createPeerConnectionForViewer = async (viewerId: string, stream: MediaStream) => {
-    if (!socket || !roomId) return
 
-    // Check if peer connection already exists for this viewer
-    const existingConnection = peerConnectionsRef.current.get(viewerId)
-    if (existingConnection) {
-      console.log('Peer connection already exists for viewer:', viewerId, '- closing old connection')
-      existingConnection.close()
-      peerConnectionsRef.current.delete(viewerId)
-    }
 
-    console.log('Creating peer connection for viewer:', viewerId)
 
-    const peerConnection = new RTCPeerConnection(configuration)
-    peerConnectionsRef.current.set(viewerId, peerConnection)
-
-    // Add tracks to peer connection
-    stream.getTracks().forEach(track => {
-      console.log('Adding track to peer connection:', track.kind)
-      peerConnection.addTrack(track, stream)
-    })
-
-    // Handle ICE candidates
-    peerConnection.onicecandidate = (event) => {
-      if (event.candidate && socket) {
-        console.log('Sending ICE candidate to viewer:', viewerId)
-        socket.emit('ice-candidate', {
-          roomId,
-          candidate: event.candidate.toJSON(),
-          to: viewerId
-        })
-      }
-    }
-
-    // Monitor connection state
-    peerConnection.onconnectionstatechange = () => {
-      console.log(`[HOST] Peer connection state with ${viewerId}:`, peerConnection.connectionState)
-      if (peerConnection.connectionState === 'failed') {
-        console.error(`[HOST] Connection failed with viewer ${viewerId}`)
-      }
-    }
-
-    // Monitor ICE connection state
-    peerConnection.oniceconnectionstatechange = () => {
-      console.log(`[HOST] ICE connection state with ${viewerId}:`, peerConnection.iceConnectionState)
-    }
-
-    // Create and send offer
-    const offer = await peerConnection.createOffer()
-    await peerConnection.setLocalDescription(offer)
-
-    console.log('Sending offer to viewer:', viewerId)
-    socket.emit('offer', {
-      roomId,
-      offer: offer,
-      to: viewerId
-    })
-  }
-
-  const handleReceiveOffer = async (offer: RTCSessionDescriptionInit) => {
-    if (!socket || !roomId) return
-
-    console.log('Viewer handling offer')
-
-    // Close existing peer connection if any (host might have restarted sharing)
-    if (peerConnectionRef.current) {
-      console.log('Closing existing peer connection before creating new one')
-      peerConnectionRef.current.close()
-      peerConnectionRef.current = null
-    }
-
-    const peerConnection = new RTCPeerConnection(configuration)
-    peerConnectionRef.current = peerConnection
-
-    // Handle remote stream
-    peerConnection.ontrack = (event) => {
-      console.log('Received remote track:', event.streams[0])
-      setRemoteStream(event.streams[0])
-    }
-
-    // Handle ICE candidates
-    peerConnection.onicecandidate = (event) => {
-      if (event.candidate && socket) {
-        console.log('Sending ICE candidate to host')
-        socket.emit('ice-candidate', {
-          roomId,
-          candidate: event.candidate.toJSON()
-        })
-      }
-    }
-
-    // Monitor connection state
-    peerConnection.onconnectionstatechange = () => {
-      console.log('[VIEWER] Peer connection state:', peerConnection.connectionState)
-      setConnectionState(peerConnection.connectionState)
-      if (peerConnection.connectionState === 'failed') {
-        console.error('[VIEWER] Connection failed')
-        setError('WebRTC connection failed')
-      }
-    }
-
-    // Monitor ICE connection state
-    peerConnection.oniceconnectionstatechange = () => {
-      console.log('[VIEWER] ICE connection state:', peerConnection.iceConnectionState)
-    }
-
-    await peerConnection.setRemoteDescription(new RTCSessionDescription(offer))
-
-    // Process queued ICE candidates
-    if (iceCandidatesQueueRef.current.length > 0) {
-      console.log('[VIEWER] Processing queued ICE candidates:', iceCandidatesQueueRef.current.length)
-      for (const candidate of iceCandidatesQueueRef.current) {
-        await peerConnection.addIceCandidate(new RTCIceCandidate(candidate))
-      }
-      iceCandidatesQueueRef.current = []
-    }
-
-    const answer = await peerConnection.createAnswer()
-    await peerConnection.setLocalDescription(answer)
-
-    console.log('Sending answer to host')
-    socket.emit('answer', {
-      roomId,
-      answer: answer
-    })
-  }
 
   // Cleanup on unmount
   useEffect(() => {

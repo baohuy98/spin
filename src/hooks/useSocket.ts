@@ -177,28 +177,8 @@ export function useSocket(options: UseSocketOptions = {}) {
         }
       })
 
-      // Auto re-join room on reconnection if room data exists (for page reload)
-      newSocket.on('connect', () => {
-        const savedRoomData = sessionStorage.getItem('roomData')
-        const savedMember = sessionStorage.getItem('viewerMember')
-
-        if (savedRoomData && savedMember) {
-          try {
-            const parsedRoom: RoomData = JSON.parse(savedRoomData)
-            const parsedMember = JSON.parse(savedMember)
-
-            // Auto re-join the room immediately on socket connect
-            console.log('[useSocket] Auto re-joining room on reconnect:', parsedRoom.roomId, 'as', parsedMember.genID)
-            newSocket.emit('join-room', {
-              roomId: parsedRoom.roomId,
-              memberId: parsedMember.genID,
-              name: parsedMember.name
-            })
-          } catch (e) {
-            console.error('[useSocket] Failed to parse saved data for rejoin:', e)
-          }
-        }
-      })
+      // Note: Auto re-join is handled by ViewerPage/HostPage components
+      // to avoid duplicate join attempts and race conditions
 
       // Chat events
       newSocket.on('chat-message', (data: ChatMessage) => {
@@ -241,6 +221,7 @@ export function useSocket(options: UseSocketOptions = {}) {
   const joinRoom = (roomId: string, memberId: string, name: string, force = false) => {
     if (socketRef.current) {
       const joinKey = `${roomId}-${memberId}`
+      const currentSocketId = socketRef.current.id
 
       // Check if there's already a pending join request for this room-member combo
       if (!force && pendingJoinRef.current === joinKey) {
@@ -248,14 +229,28 @@ export function useSocket(options: UseSocketOptions = {}) {
         return
       }
 
+      // Get the socket ID we last joined with (stored in sessionStorage)
+      const lastJoinedSocketId = sessionStorage.getItem('lastJoinedSocketId')
+
+      // Always rejoin if socket ID changed (page reload scenario)
+      // This ensures backend updates socket mappings and cancels grace period
+      const socketChanged = lastJoinedSocketId !== currentSocketId
+
       // Check if already in the room (roomData exists and contains this member)
-      if (!force && roomData && roomData.roomId === roomId && roomData.members.includes(memberId)) {
+      // But always rejoin if socket changed to update backend mappings
+      if (!force && !socketChanged && roomData && roomData.roomId === roomId && roomData.members.includes(memberId)) {
         console.log('[useSocket] Already in room:', { roomId, memberId })
         return
       }
 
-      console.log('[useSocket] Attempting to join room:', { roomId, memberId, name, socketId: socketRef.current.id })
+      // Check if already in a different room - leave first
+      if (!force && roomData && roomData.roomId && roomData.roomId !== roomId) {
+        console.log('[useSocket] Leaving previous room before joining new one:', roomData.roomId)
+      }
+
+      console.log('[useSocket] Attempting to join room:', { roomId, memberId, name, socketId: currentSocketId, socketChanged })
       pendingJoinRef.current = joinKey // Mark as pending
+      sessionStorage.setItem('lastJoinedSocketId', currentSocketId) // Track this socket
       socketRef.current.emit('join-room', { roomId, memberId, name })
     } else {
       console.error('[useSocket] Cannot join room - socket not connected')
@@ -267,6 +262,7 @@ export function useSocket(options: UseSocketOptions = {}) {
       socketRef.current.emit('leave-room', { roomId, memberId })
       pendingJoinRef.current = null
       sessionStorage.removeItem('roomData')
+      sessionStorage.removeItem('lastJoinedSocketId')
     }
   }
 

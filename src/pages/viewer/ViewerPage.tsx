@@ -260,6 +260,9 @@ export default function ViewerPage() {
             toast.error('Room not found. Please check the Room ID.')
             sessionStorage.removeItem('roomData')
             sessionStorage.removeItem('viewerMemberId')
+
+            setHasJoined(false)
+            setRoomId('')
         }
     }, [error])
 
