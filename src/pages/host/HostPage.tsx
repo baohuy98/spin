@@ -4,9 +4,11 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import SpinWheel from '../../components/SpinWheel'
 import { useSocket } from '../../hooks/useSocket'
 import { useWebRTC } from '../../hooks/useWebRTC'
+import { useSpinSound } from '../../hooks/useSpinSound'
 import type { Member } from '../../utils/interface/MemberInterface'
 import { toast } from 'sonner'
 import ChatView from '@/components/ChatView'
+import { Eye, Volume2, VolumeX } from 'lucide-react'
 
 interface WheelItem {
   id: string
@@ -39,18 +41,17 @@ export default function HostPage() {
   const [showSettings, setShowSettings] = useState(false)
   const [spinDuration, setSpinDuration] = useState(4)
   const [rotation, setRotation] = useState(0)
+  const [soundEnabled, setSoundEnabled] = useState(true)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const roomCreatedRef = useRef(false)
 
-  // Socket.io for room management
-  const { socket, isConnected, roomData, createRoom, emitSpinResult, messages, sendChatMessage } = useSocket()
+  // Sound effects for spinning
+  const { startSpinSound, playWinSound, stopSpinSound } = useSpinSound()
 
-  // Generate shareable room link - relies on roomData from the socket
-  const getRoomLink = () => {
-    if (!roomData?.roomId) return ''
-    return `${window.location.origin}/viewer?roomId=${roomData.roomId}`
-  }
+  // Socket.io for room management
+  const { socket, isConnected, roomData, createRoom, leaveRoom, emitSpinResult, messages, sendChatMessage } = useSocket()
+
 
   // Get current room ID from the socket state
   const getCurrentRoomId = () => {
@@ -203,6 +204,11 @@ export default function HostPage() {
     setIsSpinning(true)
     setResult(null)
 
+    // Start spinning sound if enabled
+    if (soundEnabled) {
+      startSpinSound(spinDuration)
+    }
+
     const visibleItems = items.filter(item => item.visible)
     const randomIndex = Math.floor(Math.random() * visibleItems.length)
     const selectedItem = visibleItems[randomIndex]
@@ -217,6 +223,10 @@ export default function HostPage() {
 
     setTimeout(() => {
       setIsSpinning(false)
+      if (soundEnabled) {
+        stopSpinSound()
+        playWinSound() // Play celebration sound
+      }
       setResult(selectedItem.text)
 
       // Emit spin result to all viewers in the room
@@ -248,29 +258,58 @@ export default function HostPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background pt-20 pb-10">
-      <div className="container mx-auto px-4">
-        <div className="flex flex-col lg:flex-row gap-8">
-          {/* Left Panel - Wheel */}
-          <div className="flex-1 flex flex-col items-center justify-center">
-            <div
-              className="cursor-pointer"
-              onClick={handleSpin}
-            >
-              <SpinWheel
-                items={items}
-                isSpinning={isSpinning}
-                spinDuration={spinDuration}
-                rotation={rotation}
+    <div className="min-h-screen bg-background pt-16 sm:pt-20 pb-6 sm:pb-10">
+      <div className="container mx-auto px-2 sm:px-4">
+        <div className="flex flex-col lg:flex-row gap-4 sm:gap-8">
+          {/* Left Panel - Wheel and Chat */}
+          <div className="flex-1 flex flex-col items-center px-2 sm:px-4">
+            {/* Wheel with sound toggle */}
+            <div className="relative w-full max-w-[280px] sm:max-w-[400px] md:max-w-[500px]">
+              {/* Sound toggle - top left corner */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setSoundEnabled(!soundEnabled)
+                }}
+                className={`absolute top-0 left-0 z-10 p-2 sm:p-3 rounded-full shadow-lg transition-all hover:scale-105 ${
+                  soundEnabled
+                    ? 'bg-green-500 hover:bg-green-600 text-white'
+                    : 'bg-gray-400 hover:bg-gray-500 text-white'
+                }`}
+                title={soundEnabled ? 'Sound On' : 'Sound Off'}
+              >
+                {soundEnabled ? <Volume2 className="w-4 h-4 sm:w-5 sm:h-5" /> : <VolumeX className="w-4 h-4 sm:w-5 sm:h-5" />}
+              </button>
+
+              {/* Clickable wheel */}
+              <div
+                className={`cursor-pointer ${isSpinning || items.filter(i => i.visible).length === 0 ? 'cursor-not-allowed opacity-80' : 'hover:scale-[1.02] transition-transform'}`}
+                onClick={handleSpin}
+              >
+                <SpinWheel
+                  items={items}
+                  isSpinning={isSpinning}
+                  spinDuration={spinDuration}
+                  rotation={rotation}
+                />
+              </div>
+            </div>
+
+            {/* Chat below wheel */}
+            <div className="w-full max-w-[500px] mt-6 sm:mt-8 bg-white/10 backdrop-blur-md rounded-xl overflow-hidden min-h-[400px] flex flex-col">
+              <ChatView
+                roomId={roomData?.roomId || null}
+                currentUserId={hostMember?.genID || ''}
+                currentUserName={hostMember?.name || ''}
+                messages={messages}
+                onSendMessage={(message) => {
+                  if (roomData?.roomId && hostMember) {
+                    sendChatMessage(roomData.roomId, hostMember.genID, hostMember.name, message)
+                  }
+                }}
+                isConnected={isConnected}
               />
             </div>
-            <button
-              onClick={handleSpin}
-              disabled={isSpinning || items.filter(i => i.visible).length === 0}
-              className="mt-8 px-12 py-4 bg-primary text-primary-foreground font-bold text-2xl rounded-full shadow-xl hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-105"
-            >
-              {isSpinning ? 'SPINNING...' : 'SPIN NOW'}
-            </button>
           </div>
 
           {/* Right Panel - Controls */}
@@ -354,9 +393,15 @@ export default function HostPage() {
                     muted
                     className="w-full h-40 object-contain"
                   />
-                  <div className="absolute top-2 right-2 px-2 py-1 bg-red-500 rounded text-white text-xs font-semibold flex items-center gap-1">
-                    <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                    LIVE
+                  <div className="absolute top-2 right-2 flex items-center gap-2">
+                    <div className="px-2 py-1 bg-black/70 rounded text-white text-xs font-semibold flex items-center gap-1">
+                      <Eye className="w-3 h-3" />
+                      {Math.max(0, (roomData?.members?.length || 1) - 1)}
+                    </div>
+                    <div className="px-2 py-1 bg-red-500 rounded text-white text-xs font-semibold flex items-center gap-1">
+                      <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                      LIVE
+                    </div>
                   </div>
                 </div>
               )}
@@ -483,22 +528,6 @@ export default function HostPage() {
                   </div>
                 ))}
               </div>
-            </div>
-
-            {/* Chat & Comments Card */}
-            <div className="bg-white/10 backdrop-blur-md rounded-xl overflow-hidden min-h-[500px] flex flex-col">
-              <ChatView
-                roomId={roomData?.roomId || null}
-                currentUserId={hostMember?.genID || ''}
-                currentUserName={hostMember?.name || ''}
-                messages={messages}
-                onSendMessage={(message) => {
-                  if (roomData?.roomId && hostMember) {
-                    sendChatMessage(roomData.roomId, hostMember.genID, hostMember.name, message)
-                  }
-                }}
-                isConnected={isConnected}
-              />
             </div>
           </div>
         </div>

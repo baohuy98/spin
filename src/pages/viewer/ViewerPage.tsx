@@ -196,15 +196,17 @@ export default function ViewerPage() {
         setHasJoined(true)
     }
 
-    // Handle errors - reset join state when room not found
+    // Handle errors - show toast but don't reset hasJoined to avoid retry loops
     useEffect(() => {
         if (error) {
-            setHasJoined(false)
-            // If room not found, clear sessionStorage
+            // Only reset hasJoined for specific errors that require re-entry
             if (error.includes('not found') || error.includes('does not exist')) {
                 toast.error('Room not found. Please check the Room ID.')
                 sessionStorage.removeItem('roomData')
-                sessionStorage.removeItem('viewerMemberId')
+                sessionStorage.removeItem('viewerMember')
+                // Only reset if we want user to re-enter room ID manually
+                setHasJoined(false)
+                setRoomId('')
             }
         }
     }, [error])
