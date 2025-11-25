@@ -15,11 +15,31 @@ interface RoomDataEvent extends Event {
 }
 
 function AppContent() {
+
+  // Initialize room data from sessionStorage if on host page (for page reload)
   const [roomData, setRoomData] = useState<{
     roomId?: string
     getRoomLink?: () => string
-    onLeave?: () => void
-  }>({})
+  }>(() => {
+    // Only restore if we're on the host page
+    if (window.location.pathname === '/host') {
+      const savedRoomData = sessionStorage.getItem('roomData')
+      if (savedRoomData) {
+        try {
+          const parsed = JSON.parse(savedRoomData)
+          if (parsed.roomId) {
+            return {
+              roomId: parsed.roomId,
+              getRoomLink: () => `${window.location.origin}/viewer?roomId=${parsed.roomId}`
+            }
+          }
+        } catch {
+          // Invalid data, ignore
+        }
+      }
+    }
+    return {}
+  })
 
   // Listen for custom events from HostPage to update room data
   useEffect(() => {

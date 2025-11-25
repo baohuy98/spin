@@ -8,7 +8,7 @@ import { useSocket } from '../../hooks/useSocket'
 import { useWebRTC } from '../../hooks/useWebRTC'
 import { useSpinSound } from '../../hooks/useSpinSound'
 import type { Member } from '../../utils/interface/MemberInterface'
-import { Eye, Volume2, VolumeX } from 'lucide-react'
+import { Eye, Volume2, VolumeX, Plus, Trash2 } from 'lucide-react'
 
 interface WheelItem {
   id: string
@@ -17,10 +17,30 @@ interface WheelItem {
   visible: boolean
 }
 
-const defaultColors = [
+// Base color palette theme
+const paletteTheme = [
   '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8',
-  '#F7DC6F', '#BB8FCE', '#85C1E2', '#F8B739', '#52B788'
+  '#F7DC6F', '#BB8FCE', '#85C1E2', '#F8B739', '#52B788',
+  '#E74C3C', '#3498DB', '#9B59B6', '#1ABC9C', '#F39C12',
+  '#E67E22', '#2ECC71', '#34495E', '#16A085', '#C0392B'
 ]
+
+// Generate a color from the palette - deterministic based on index
+const generateColorForMember = (index: number): string => {
+  // For first 20 members, use palette colors directly
+  if (index < paletteTheme.length) {
+    return paletteTheme[index]
+  }
+
+  // For additional members, generate vibrant colors using HSL with deterministic values
+  // Use index to generate consistent colors that don't change on re-render
+  const offset = index - paletteTheme.length
+  const hue = (offset * 137.5) % 360 // Golden angle for good distribution
+  const saturation = 70 + (offset % 3) * 10 // Vary between 70-90%
+  const lightness = 55 + (offset % 2) * 5 // Vary between 55-60%
+
+  return `hsl(${hue}, ${saturation}%, ${lightness}%)`
+}
 
 export default function HostPage() {
   const location = useLocation()
@@ -32,7 +52,7 @@ export default function HostPage() {
     hostMember ? [{
       id: hostMember.genID,
       text: hostMember.name,
-      color: defaultColors[0],
+      color: generateColorForMember(0),
       visible: true
     }] : []
   )
@@ -42,16 +62,18 @@ export default function HostPage() {
   const [spinDuration, setSpinDuration] = useState(4)
   const [rotation, setRotation] = useState(0)
   const [soundEnabled, setSoundEnabled] = useState(true)
+  const [recentWinners, setRecentWinners] = useState<string[]>([]) // Track recent winners for fairer selection
+  const [manualMembers, setManualMembers] = useState<WheelItem[]>([]) // Manually added members (not in room)
+  const [manualMemberName, setManualMemberName] = useState('')
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const roomCreatedRef = useRef(false)
 
   // Socket.io for room management
-  const { socket, isConnected, roomData, createRoom, leaveRoom, emitSpinResult, messages, sendChatMessage, reactToMessage } = useSocket()
+  const { socket, isConnected, roomData, createRoom, leaveRoom, emitSpinResult, messages, sendChatMessage, } = useSocket()
+
   // Sound effects for spinning
   const { startSpinSound, playWinSound, stopSpinSound } = useSpinSound()
-
-  // Socket.io for room management
 
 
   // Get current room ID from the socket state
@@ -100,19 +122,36 @@ export default function HostPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConnected, hostMember])
 
-  // Update wheel items when socket room data changes
+  // Update wheel items when socket room data or manual members change
   useEffect(() => {
-    if (roomData && roomData.membersWithDetails) {
-      // Update wheel items with actual logged-in room members
-      const updatedItems = roomData.membersWithDetails.map((member, index) => ({
-        id: member.genID,
-        text: member.name,
-        color: defaultColors[index % defaultColors.length],
-        visible: true
-      }))
-      setItems(updatedItems)
-    }
-  }, [roomData])
+    const roomMembers: WheelItem[] =
+      roomData && roomData.membersWithDetails && roomData.membersWithDetails.length > 0
+        ? roomData.membersWithDetails.map((member, index) => ({
+          id: member.genID,
+          text: member.name,
+          color: generateColorForMember(index),
+          visible: true
+        }))
+        : hostMember
+          ? [{
+            id: hostMember.genID,
+            text: hostMember.name,
+            color: generateColorForMember(0),
+            visible: true
+          }]
+          : []
+
+    // Merge room members with manually added members
+    const allMembers = [...roomMembers, ...manualMembers]
+
+    // Reassign colors based on total index
+    const coloredMembers = allMembers.map((member, index) => ({
+      ...member,
+      color: generateColorForMember(index)
+    }))
+
+    setItems(coloredMembers)
+  }, [roomData, manualMembers, hostMember])
 
   // Attach local stream to video element
   useEffect(() => {
@@ -168,16 +207,35 @@ export default function HostPage() {
   }
 
   const resetMembers = () => {
-    // Reset to current room members
-    if (roomData && roomData.membersWithDetails) {
-      const resetItems = roomData.membersWithDetails.map((member, index) => ({
-        id: member.genID,
-        text: member.name,
-        color: defaultColors[index % defaultColors.length],
-        visible: true
-      }))
-      setItems(resetItems)
+    // Reset to current room members (clears manual members)
+    setManualMembers([])
+    // Also clear recent winners history
+    setRecentWinners([])
+  }
+
+  const addManualMember = () => {
+    if (!manualMemberName.trim()) {
+      toast.error('Please enter a name')
+      return
     }
+
+    // Generate a unique ID for manual member
+    const manualId = `manual-${Date.now()}`
+    const newMember: WheelItem = {
+      id: manualId,
+      text: manualMemberName.trim(),
+      color: generateColorForMember(items.length), // Will be reassigned by useEffect
+      visible: true
+    }
+
+    setManualMembers(prev => [...prev, newMember])
+    setManualMemberName('')
+    toast.success(`Added ${manualMemberName.trim()} to spin list`)
+  }
+
+  const removeManualMember = (id: string) => {
+    setManualMembers(prev => prev.filter(m => m.id !== id))
+    toast.success('Removed from spin list')
   }
 
   const handleLeaveRoom = useCallback(() => {
@@ -212,14 +270,63 @@ export default function HostPage() {
     }
 
     const visibleItems = items.filter(item => item.visible)
-    const randomIndex = Math.floor(Math.random() * visibleItems.length)
-    const selectedItem = visibleItems[randomIndex]
+
+    // Implement weighted random selection to avoid picking recent winners
+    // Items that were recently selected get lower weights
+    const weights = visibleItems.map(item => {
+      const timesInRecent = recentWinners.filter(id => id === item.id).length
+      // Reduce weight exponentially for recent winners
+      // First recent: 0.3x, second recent: 0.1x, third+: 0.05x
+      if (timesInRecent === 0) return 1.0
+      if (timesInRecent === 1) return 0.3
+      if (timesInRecent === 2) return 0.1
+      return 0.05
+    })
+
+    // Calculate total weight
+    const totalWeight = weights.reduce((sum, weight) => sum + weight, 0)
+
+    // Select random item based on weights
+    let random = Math.random() * totalWeight
+    let selectedIndex = 0
+    for (let i = 0; i < weights.length; i++) {
+      random -= weights[i]
+      if (random <= 0) {
+        selectedIndex = i
+        break
+      }
+    }
+
+    const selectedItem = visibleItems[selectedIndex]
+
+    // Update recent winners (keep last 3)
+    setRecentWinners(prev => {
+      const updated = [...prev, selectedItem.id]
+      // Keep only last 3 winners, or reset if all items have been picked
+      if (updated.length >= visibleItems.length * 2) {
+        return [selectedItem.id]
+      }
+      return updated.slice(-3)
+    })
 
     // Calculate rotation to land on selected item
+    // The pointer is at TOP, segments are indexed from top going clockwise
+    // Center of segment i is at angle: (i + 0.5) * segmentAngle from top (clockwise)
+    // We need final rotation (mod 360) = 360 - (i + 0.5) * segmentAngle
     const segmentAngle = 360 / visibleItems.length
-    const targetAngle = randomIndex * segmentAngle
+    const segmentCenter = (selectedIndex + 0.5) * segmentAngle
+    const targetAngle = 360 - segmentCenter
+
+    // Calculate how much to rotate from current position
+    const currentAngle = rotation % 360
+    let additionalRotation = targetAngle - currentAngle
+    // Always rotate forward (clockwise), add 360 if we'd go backward
+    if (additionalRotation <= 0) additionalRotation += 360
+
     const spins = 360 * 5 // 5 full rotations
-    const newRotation = rotation + spins + (360 - targetAngle) + segmentAngle / 2
+    // Add small random offset within segment for natural feel (±30% of segment)
+    const randomOffset = (Math.random() - 0.5) * segmentAngle * 0.6
+    const newRotation = rotation + spins + additionalRotation + randomOffset
 
     setRotation(newRotation)
 
@@ -442,13 +549,27 @@ export default function HostPage() {
               </div>
 
               {/* Settings Panel */}
-              <AnimatePresence>
+              <AnimatePresence mode="wait">
                 {showSettings && (
                   <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="bg-accent rounded-lg p-4 space-y-4"
+                    initial={{ opacity: 0, scaleY: 0, originY: 0 }}
+                    animate={{
+                      opacity: 1,
+                      scaleY: 1,
+                      transition: {
+                        duration: 0.5,
+                        ease: [0.4, 0, 0.2, 1] // cubic-bezier for smooth easing
+                      }
+                    }}
+                    exit={{
+                      opacity: 0,
+                      scaleY: 0,
+                      transition: {
+                        duration: 0.3,
+                        ease: [0.4, 0, 1, 1]
+                      }
+                    }}
+                    className="bg-accent rounded-lg p-4 space-y-4 overflow-hidden"
                   >
                     <div>
                       <label className="text-sm font-medium block mb-2">
@@ -467,6 +588,55 @@ export default function HostPage() {
                   </motion.div>
                 )}
               </AnimatePresence>
+
+              {/* Add Manual Member Section */}
+              <div className="bg-accent rounded-lg p-4 space-y-3">
+                <h3 className="text-sm font-semibold">Add Member Manually</h3>
+
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={manualMemberName}
+                    onChange={(e) => setManualMemberName(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && addManualMember()}
+                    placeholder="Enter name..."
+                    className="flex-1 px-3 py-2 rounded-lg bg-background border text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                  <button
+                    onClick={addManualMember}
+                    className="p-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+                    title="Add member"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                </div>
+                {manualMembers.length > 0 && (
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Manual members ({manualMembers.length}):</p>
+                    {manualMembers.map((member) => (
+                      <div
+                        key={member.id}
+                        className="flex items-center justify-between bg-background rounded p-2"
+                      >
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-4 h-4 rounded-full shrink-0"
+                            style={{ backgroundColor: member.color }}
+                          />
+                          <span className="text-sm font-medium">{member.text}</span>
+                        </div>
+                        <button
+                          onClick={() => removeManualMember(member.id)}
+                          className="p-1 text-destructive hover:text-destructive/80 hover:bg-destructive/10 rounded transition-colors"
+                          title="Remove member"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               {/* Bulk Actions */}
               <div className="grid grid-cols-2 gap-2">
@@ -511,8 +681,10 @@ export default function HostPage() {
                       className="w-6 h-6 rounded-full shrink-0"
                       style={{ backgroundColor: item.color }}
                     />
-                    <span className="flex-1 font-medium truncate">{item.text}</span>
-                    <span className="text-muted-foreground text-xs">ID: {item.id}</span>
+                    <div className="flex-1 flex items-center gap-2">
+                      <span className="font-medium truncate">{item.text}</span>
+
+                    </div>
                     <button
                       onClick={() => toggleVisibility(item.id)}
                       className="p-1 hover:bg-accent rounded transition-colors"
@@ -529,27 +701,6 @@ export default function HostPage() {
                   </div>
                 ))}
               </div>
-            </div>
-
-            {/* Chat & Comments Card */}
-            <div className="bg-white/10 backdrop-blur-md rounded-xl h-[500px] flex flex-col">
-              <ChatView
-                roomId={roomData?.roomId || null}
-                currentUserId={hostMember?.genID || ''}
-                currentUserName={hostMember?.name || ''}
-                messages={messages}
-                onSendMessage={(message) => {
-                  if (roomData?.roomId && hostMember) {
-                    sendChatMessage(roomData.roomId, hostMember.genID, hostMember.name, message)
-                  }
-                }}
-                onReactToMessage={(messageId, emoji) => {
-                  if (roomData?.roomId && hostMember) {
-                    reactToMessage(roomData.roomId, messageId, hostMember.genID, emoji)
-                  }
-                }}
-                isConnected={isConnected}
-              />
             </div>
           </div>
         </div>

@@ -6,7 +6,17 @@ export default function Home() {
   const [name, setName] = useState('');
   const [roomID, setRoomID] = useState('');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [pendingRoomId, setPendingRoomId] = useState<string | null>(null);
   const navigate = useNavigate();
+
+  // Check for pending room ID (from viewer redirect)
+  useEffect(() => {
+    const pending = sessionStorage.getItem('pendingRoomId');
+    if (pending) {
+      setPendingRoomId(pending);
+      setRoomID(pending); // Pre-fill the room ID input
+    }
+  }, []);
 
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
@@ -42,6 +52,13 @@ export default function Home() {
     }
     localStorage.setItem('loggedInUser', JSON.stringify({ genID: genID.trim(), name: name.trim() }));
     setIsLoggedIn(true);
+
+    // Auto-navigate to room if there's a pending room ID
+    if (pendingRoomId) {
+      const member = { genID: genID.trim(), name: name.trim() };
+      sessionStorage.removeItem('pendingRoomId'); // Clear the pending room ID
+      navigate(`/viewer?roomId=${pendingRoomId}`, { state: { member } });
+    }
   };
 
   const handleLogout = () => {

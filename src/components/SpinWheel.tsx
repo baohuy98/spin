@@ -66,6 +66,40 @@ export default function SpinWheel({ items, isSpinning, spinDuration, rotation }:
 
           {/* Draw each segment */}
           {visibleItems.map((item, index) => {
+            // Special case: if there's only one segment, draw a full circle
+            if (visibleItems.length === 1) {
+              return (
+                <g key={item.id}>
+                  {/* Full circle segment */}
+                  <circle
+                    cx="250"
+                    cy="250"
+                    r="240"
+                    fill={item.color}
+                    stroke="white"
+                    strokeWidth="2"
+                  />
+
+                  {/* Text centered */}
+                  <text
+                    x="250"
+                    y="250"
+                    fill="white"
+                    fontSize="18"
+                    fontWeight="bold"
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    className="pointer-events-none select-none"
+                    style={{
+                      textShadow: '2px 2px 4px rgba(0,0,0,0.5)'
+                    }}
+                  >
+                    {item.text}
+                  </text>
+                </g>
+              )
+            }
+
             const startAngle = (index * segmentAngle - 90) * (Math.PI / 180)
             const endAngle = ((index + 1) * segmentAngle - 90) * (Math.PI / 180)
             const midAngle = (startAngle + endAngle) / 2
