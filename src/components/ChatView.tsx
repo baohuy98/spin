@@ -70,7 +70,7 @@ export default function ChatView({
   const isOwnMessage = (userId: string) => userId === currentUserId
 
   return (
-    <div className="bg-card border rounded-lg flex flex-col h-full">
+    <div className="bg-card border rounded-lg flex flex-col ">
       <div className="px-4 py-3 border-b flex items-center gap-2">
         <MessageCircle className="w-5 h-5 text-primary" />
         <h3 className="text-lg font-semibold flex-1">Chat</h3>
@@ -80,7 +80,7 @@ export default function ChatView({
       </div>
 
       {/* Messages Area */}
-      <ScrollArea className="md:flex-1 h-[300px] px-4 py-3">
+      <ScrollArea className="h-[300px] lg:h-[420px] px-4 py-3">
         <div className="space-y-3">
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">

@@ -273,8 +273,8 @@ export default function ViewerPage() {
 
     // Main viewer interface
     return (
-        <div className="min-h-screen bg-background pt-10 pb-10">
-            <div className="container mx-auto px-4 h-[calc(100vh-120px)]">
+        <>
+            <div className="container mx-auto px-4 pt-10 h-[calc(100vh-80px)]">
                 <div className="flex flex-col lg:flex-row gap-6 h-full">
                     {/* Left Panel - Screen Share */}
                     <div className="flex-1 flex flex-col gap-4">
@@ -382,9 +382,9 @@ export default function ViewerPage() {
                     {/* Right Panel - Reserved for Future Features */}
                     <div className="lg:w-96 flex flex-col gap-4">
                         {/* Participants */}
-                        <div className="bg-card border rounded-lg p-6">
+                        <div className="bg-card flex-1 border rounded-lg p-6 overflow-y-auto">
                             <h3 className="text-xl font-semibold mb-4">Participants</h3>
-                            <div className="space-y-2 max-h-48 overflow-y-auto">
+                            <div className="space-y-2">
                                 {roomData?.members && roomData.members.length > 0 ? (
                                     roomData.membersWithDetails?.map((member) => (
                                         <div
@@ -406,25 +406,23 @@ export default function ViewerPage() {
                         </div>
 
                         {/* Chat & Comments */}
-                        <div className="flex-1 min-h-[400px]">
-                            <ChatView
-                                roomId={roomId}
-                                currentUserId={viewerMember?.genID || ''}
-                                currentUserName={viewerMember?.name || ''}
-                                messages={messages}
-                                onSendMessage={(message) => {
-                                    if (roomId) {
-                                        sendChatMessage(roomId, viewerMember?.genID || '', viewerMember?.name || '', message)
-                                    }
-                                }}
-                                onReactToMessage={(messageId, emoji) => {
-                                    if (roomId) {
-                                        reactToMessage(roomId, messageId, viewerMember?.genID || '', emoji)
-                                    }
-                                }}
-                                isConnected={isConnected}
-                            />
-                        </div>
+                        <ChatView
+                            roomId={roomId}
+                            currentUserId={viewerMember?.genID || ''}
+                            currentUserName={viewerMember?.name || ''}
+                            messages={messages}
+                            onSendMessage={(message) => {
+                                if (roomId) {
+                                    sendChatMessage(roomId, viewerMember?.genID || '', viewerMember?.name || '', message)
+                                }
+                            }}
+                            onReactToMessage={(messageId, emoji) => {
+                                if (roomId) {
+                                    reactToMessage(roomId, messageId, viewerMember?.genID || '', emoji)
+                                }
+                            }}
+                            isConnected={isConnected}
+                        />
                     </div>
                 </div>
             </div>
@@ -484,6 +482,6 @@ export default function ViewerPage() {
                     </motion.div>
                 )}
             </AnimatePresence>
-        </div>
+        </ >
     )
 }

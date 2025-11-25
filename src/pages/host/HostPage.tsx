@@ -1,15 +1,15 @@
 import ChatView from '@/components/ChatView'
 import { AnimatePresence, motion } from 'framer-motion'
+import { MonitorUp, Plus, Trash2, Volume2, VolumeX } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import LivestreamReactions from '../../components/LivestreamReactions'
 import SpinWheel from '../../components/SpinWheel'
 import { useSocket } from '../../hooks/useSocket'
-import { useWebRTC } from '../../hooks/useWebRTC'
 import { useSpinSound } from '../../hooks/useSpinSound'
+import { useWebRTC } from '../../hooks/useWebRTC'
 import type { Member } from '../../utils/interface/MemberInterface'
-import { Volume2, VolumeX, Plus, Trash2, MonitorUp } from 'lucide-react'
 
 interface WheelItem {
   id: string
@@ -424,7 +424,7 @@ export default function HostPage() {
             </div>
 
             {/* Chat below wheel */}
-            <div className="w-full  mt-6 sm:mt-8 bg-white/10 backdrop-blur-md rounded-xl overflow-hidden min-h-[400px] flex flex-col">
+            <div className="w-full mt-6 sm:mt-8">
               <ChatView
                 roomId={roomData?.roomId || null}
                 currentUserId={hostMember?.genID || ''}
