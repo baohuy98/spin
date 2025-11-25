@@ -11,7 +11,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { AnimatePresence, motion } from "framer-motion";
 import {
   Link2,
   LogOut,
@@ -24,6 +23,15 @@ import { QRCodeSVG } from "qrcode.react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "../components/ui/button";
+
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog";
 
 interface HeaderProps {
   roomId?: string;
@@ -73,7 +81,6 @@ export function Header({ roomId, onCopyLink, getRoomLink, onLeave }: HeaderProps
       {/* Action Icons Section */}
       <TooltipProvider>
         <div className="flex items-center gap-1">
-
           {
             getRoomLink && (<DropdownMenu>
               <Tooltip>
@@ -100,8 +107,6 @@ export function Header({ roomId, onCopyLink, getRoomLink, onLeave }: HeaderProps
               </DropdownMenuContent>
             </DropdownMenu>)
           }
-
-
 
           <Tooltip>
             <TooltipTrigger asChild>
@@ -132,30 +137,18 @@ export function Header({ roomId, onCopyLink, getRoomLink, onLeave }: HeaderProps
             </Tooltip>
           )}
 
-
         </div>
       </TooltipProvider>
 
-      {/* QR Code Modal */}
-      <AnimatePresence>
-        {showQRModal && roomId && getRoomLink && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center h-screen p-4"
-            onClick={() => setShowQRModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              className="bg-card border rounded-2xl p-8 max-w-md w-full shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-            >
+      {/* QR Code Dialog */}
+      {
+        showQRModal && roomId && getRoomLink && (
+          <Dialog open={showQRModal}>
+            <DialogContent className="sm:max-w-md" showCloseButton={false}>
+              <DialogHeader>
+                <DialogTitle>Share Room</DialogTitle>
+              </DialogHeader>
               <div className="text-center space-y-6">
-                <h2 className="text-3xl font-bold">Share Room</h2>
-
                 {/* QR Code */}
                 <div className="bg-background p-6 rounded-xl border-4 border-primary inline-block">
                   <QRCodeSVG
@@ -172,21 +165,25 @@ export function Header({ roomId, onCopyLink, getRoomLink, onLeave }: HeaderProps
                     <p className="font-mono font-bold text-lg text-primary">{roomId}</p>
                   </div>
                 </div>
-                <button
-                  onClick={() => setShowQRModal(false)}
-                  className="text-muted-foreground hover:text-foreground text-sm"
-                >
-                  Close
-                </button>
-
                 <p className="text-xs text-muted-foreground">
                   Scan the QR code or share the link/ID with viewers to join this room
                 </p>
               </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              <DialogFooter className="sm:justify-start">
+                <DialogClose asChild>
+                  <Button type="button" variant="secondary"
+                    onClick={() => setShowQRModal(false)}
+                  >
+                    Close
+                  </Button>
+                </DialogClose>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )
+      }
+
+
     </header>
   );
 }
