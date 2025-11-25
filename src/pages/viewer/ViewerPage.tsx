@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import ChatView from '../../components/ChatView'
+import LivestreamReactions from '../../components/LivestreamReactions'
 import { Alert, AlertDescription } from '../../components/ui/alert'
 import { useSocket } from '../../hooks/useSocket'
 import { useWebRTC } from '../../hooks/useWebRTC'
@@ -354,6 +355,8 @@ export default function ViewerPage() {
                                         >
                                             {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
                                         </button>
+                                        {/* Livestream Reactions */}
+                                        <LivestreamReactions />
                                     </>
                                 ) : (
                                     <div className="absolute inset-0 flex  items-center justify-center">
