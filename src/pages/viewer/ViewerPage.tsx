@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import ChatView from '../../components/ChatView'
+import LivestreamReactions from '../../components/LivestreamReactions'
 import { Alert, AlertDescription } from '../../components/ui/alert'
 import { useSocket } from '../../hooks/useSocket'
 import { useWebRTC } from '../../hooks/useWebRTC'
@@ -98,7 +99,7 @@ export default function ViewerPage() {
     const videoContainerRef = useRef<HTMLDivElement>(null)
 
     // Socket.io for room management
-    const { socket, isConnected, roomData, error, joinRoom, leaveRoom, onSpinResult, isRoomClosed, isHostDisconnected, messages, sendChatMessage, reactToMessage } = useSocket()
+    const { socket, isConnected, roomData, error, joinRoom, leaveRoom, onSpinResult, isRoomClosed, isHostDisconnected, messages, sendChatMessage, reactToMessage, livestreamReactions, sendLivestreamReaction } = useSocket()
 
     // Handle host disconnection/reconnection toasts
     useEffect(() => {
@@ -354,6 +355,15 @@ export default function ViewerPage() {
                                         >
                                             {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
                                         </button>
+                                        {/* Livestream Reactions */}
+                                        <LivestreamReactions
+                                            onSendReaction={(emoji) => {
+                                                if (roomId && viewerMember) {
+                                                    sendLivestreamReaction(roomId, viewerMember.genID, viewerMember.name, emoji)
+                                                }
+                                            }}
+                                            incomingReactions={livestreamReactions}
+                                        />
                                     </>
                                 ) : (
                                     <div className="absolute inset-0 flex  items-center justify-center">
