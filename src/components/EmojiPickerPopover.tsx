@@ -2,7 +2,7 @@ import type { EmojiClickData } from 'emoji-picker-react'
 import EmojiPicker, { Theme } from 'emoji-picker-react'
 import { Smile } from 'lucide-react'
 import { useTheme } from './ThemeProvider'
-import { Button } from './ui/button'
+import { InputGroupButton } from './ui/input-group'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 
 interface EmojiPickerPopoverProps {
@@ -24,15 +24,15 @@ export default function EmojiPickerPopover({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button
+        <InputGroupButton
           type="button"
           variant="ghost"
-          size="icon"
-          className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+          className="rounded-full"
+          size="icon-xs"
           disabled={disabled}
         >
-          <Smile className="w-4 h-4 text-muted-foreground" />
-        </Button>
+          <Smile />
+        </InputGroupButton>
       </PopoverTrigger>
       <PopoverContent className="w-fit p-0" align="end">
         <EmojiPicker

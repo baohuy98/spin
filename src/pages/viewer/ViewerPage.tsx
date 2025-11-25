@@ -369,14 +369,11 @@ export default function ViewerPage() {
                             <h3 className="text-xl font-semibold mb-4">Participants</h3>
                             <div className="space-y-2 max-h-48 overflow-y-auto">
                                 {roomData?.members && roomData.members.length > 0 ? (
-                                    roomData.membersWithDetails?.map((member, index) => (
+                                    roomData.membersWithDetails?.map((member) => (
                                         <div
                                             key={member.genID}
                                             className="flex items-center gap-3 bg-accent rounded-lg p-3"
                                         >
-                                            <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-bold">
-                                                {index + 1}
-                                            </div>
                                             <div className="flex-1">
                                                 <p className="font-semibold text-sm truncate">
                                                     {member.genID === roomData.hostId ? `👑 ${member.name}` : member.name}

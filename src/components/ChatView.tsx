@@ -1,11 +1,11 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { MessageCircle, Send } from 'lucide-react'
+import { ArrowUpIcon, MessageCircle } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import EmojiPickerPopover from './EmojiPickerPopover'
 import MessageReactionPicker from './MessageReactionPicker'
-import { Button } from './ui/button'
-import { Input } from './ui/input'
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } from './ui/input-group'
 import { ScrollArea } from './ui/scroll-area'
+import { Separator } from './ui/separator'
 
 export interface MessageReaction {
   emoji: string
@@ -71,7 +71,6 @@ export default function ChatView({
 
   return (
     <div className="bg-card border rounded-lg flex flex-col h-full">
-      {/* Header */}
       <div className="px-4 py-3 border-b flex items-center gap-2">
         <MessageCircle className="w-5 h-5 text-primary" />
         <h3 className="text-lg font-semibold flex-1">Chat</h3>
@@ -81,7 +80,7 @@ export default function ChatView({
       </div>
 
       {/* Messages Area */}
-      <ScrollArea className="flex-1 h-[200px] px-4 py-3">
+      <ScrollArea className="md:flex-1 h-[300px] px-4 py-3">
         <div className="space-y-3">
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -112,7 +111,7 @@ export default function ChatView({
                           {msg.userName}
                         </p>
                       )}
-                      <p className="text-sm wrap-break-words">{msg.message}</p>
+                      <p className="text-sm whitespace-pre-line">{msg.message}</p>
                       <p
                         className={`text-xs mt-1 ${isOwnMessage(msg.userId)
                           ? 'text-primary-foreground/60'
@@ -129,11 +128,10 @@ export default function ChatView({
                               key={reaction.emoji}
                               type="button"
                               onClick={() => onReactToMessage?.(msg.id, reaction.emoji)}
-                              className={`inline-flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded-full border transition-colors ${
-                                reaction.userIds.includes(currentUserId)
-                                  ? 'bg-primary/20 border-primary/40'
-                                  : 'bg-background/50 border-border hover:bg-background/80'
-                              }`}
+                              className={`inline-flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded-full border transition-colors ${reaction.userIds.includes(currentUserId)
+                                ? 'bg-primary/20 border-primary/40'
+                                : 'bg-background/50 border-border hover:bg-background/80'
+                                }`}
                             >
                               <span>{reaction.emoji}</span>
                               <span className="text-[10px] opacity-70">{reaction.userIds.length}</span>
@@ -157,11 +155,11 @@ export default function ChatView({
       </ScrollArea>
 
       {/* Input Area */}
-      <div className="px-4 py-3 border-t">
-        <form onSubmit={handleSendMessage} className="flex gap-2">
-          <div className="relative flex-1">
-            <Input
-              type="text"
+      <div >
+        <Separator />
+        <form onSubmit={handleSendMessage}>
+          <InputGroup className='border-none' >
+            <InputGroupTextarea
               placeholder={
                 isConnected
                   ? 'Type your message...'
@@ -170,21 +168,32 @@ export default function ChatView({
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               disabled={!isConnected || !roomId}
-              className="pr-10"
               maxLength={500}
+              rows={1}
+              onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  handleSendMessage(e as React.FormEvent)
+                }
+              }}
             />
-            <EmojiPickerPopover
-              onEmojiSelect={(emoji) => setInputMessage((prev) => prev + emoji)}
-              disabled={!isConnected || !roomId}
-            />
-          </div>
-          <Button
-            type="submit"
-            size="icon"
-            disabled={!inputMessage.trim() || !isConnected || !roomId}
-          >
-            <Send className="w-4 h-4" />
-          </Button>
+            <InputGroupAddon align="block-end" className="flex justify-between">
+              <EmojiPickerPopover
+                onEmojiSelect={(emoji) => setInputMessage((prev) => prev + emoji)}
+                disabled={!isConnected || !roomId}
+              />
+              <InputGroupButton
+                variant="default"
+                className="rounded-full"
+                size="icon-xs"
+                type="submit"
+
+                disabled={!inputMessage.trim() || !isConnected || !roomId}
+              >
+                <ArrowUpIcon />
+              </InputGroupButton>
+            </InputGroupAddon>
+          </InputGroup>
         </form>
       </div>
     </div>
