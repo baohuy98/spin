@@ -85,6 +85,14 @@ export function useSocket(options: UseSocketOptions = {}) {
   const [livestreamReactions, setLivestreamReactions] = useState<LivestreamReaction[]>([])
   const pendingJoinRef = useRef<string | null>(null) // Track pending join request
 
+  const updateLivestreamReaction = (data: LivestreamReaction) => {
+    setLivestreamReactions(prev => [...prev, data])
+    // Auto-remove after animation duration
+    setTimeout(() => {
+      setLivestreamReactions(prev => prev.filter(r => r.id !== data.id))
+    }, 3500) // 3.5 seconds (max animation duration + buffer)
+
+  }
   useEffect(() => {
     if (autoConnect) {
       const newSocket = io(url, {
@@ -213,11 +221,7 @@ export function useSocket(options: UseSocketOptions = {}) {
       // Livestream reaction events
       newSocket.on('livestream-reaction', (data: LivestreamReaction) => {
         console.log('Received livestream reaction:', data)
-        setLivestreamReactions(prev => [...prev, data])
-        // Auto-remove after animation duration
-        setTimeout(() => {
-          setLivestreamReactions(prev => prev.filter(r => r.id !== data.id))
-        }, 3500) // 3.5 seconds (max animation duration + buffer)
+        updateLivestreamReaction(data)
       })
     }
 
@@ -317,6 +321,13 @@ export function useSocket(options: UseSocketOptions = {}) {
 
   const sendLivestreamReaction = (roomId: string, userId: string, userName: string, emoji: string) => {
     if (socketRef.current) {
+      updateLivestreamReaction({
+        id: new Date().toISOString(),
+        userId,
+        userName,
+        timestamp: new Date().getTime(),
+        emoji,
+      })
       socketRef.current.emit('livestream-reaction', { roomId, userId, userName, emoji })
     }
   }
