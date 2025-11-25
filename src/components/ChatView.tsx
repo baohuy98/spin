@@ -45,12 +45,12 @@ export default function ChatView({
   // Auto-scroll to bottom when new message arrives
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  }, [messages.length])
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!inputMessage.trim() || !isConnected || !roomId) {
+    if (!inputMessage.trim() || !roomId) {
       return
     }
 
@@ -74,9 +74,6 @@ export default function ChatView({
       <div className="px-4 py-3 border-b flex items-center gap-2">
         <MessageCircle className="w-5 h-5 text-primary" />
         <h3 className="text-lg font-semibold flex-1">Chat</h3>
-        {!isConnected && (
-          <span className="text-xs text-muted-foreground">Offline</span>
-        )}
       </div>
 
       {/* Messages Area */}
