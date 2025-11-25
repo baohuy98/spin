@@ -66,6 +66,7 @@ export default function HostPage() {
   const [recentWinners, setRecentWinners] = useState<string[]>([]) // Track recent winners for fairer selection
   const [manualMembers, setManualMembers] = useState<WheelItem[]>([]) // Manually added members (not in room)
   const [manualMemberName, setManualMemberName] = useState('')
+  const [pickedMembers, setPickedMembers] = useState<Array<{ name: string; timestamp: Date }>>([]) // Track all picked members with timestamps
 
   const roomCreatedRef = useRef(false)
 
@@ -165,12 +166,13 @@ export default function HostPage() {
             if (!roomData?.roomId) return ''
             return `${window.location.origin}/viewer?roomId=${roomData.roomId}`
           },
-          onLeave: handleLeaveRoom
+          onLeave: handleLeaveRoom,
+          pickedMembers: pickedMembers
         }
       })
       window.dispatchEvent(event)
     }
-  }, [roomData?.roomId])
+  }, [roomData?.roomId, pickedMembers])
 
   // Cleanup: clear room data when component unmounts
   useEffect(() => {
@@ -333,6 +335,9 @@ export default function HostPage() {
       }
       setResult(selectedItem.text)
 
+      // Add to picked members list
+      setPickedMembers(prev => [...prev, { name: selectedItem.text, timestamp: new Date() }])
+
       // Emit spin result to all viewers in the room
       if (roomData?.roomId) {
         emitSpinResult(roomData.roomId, selectedItem.text)
@@ -388,7 +393,11 @@ export default function HostPage() {
               <button
                 onClick={(e) => {
                   e.stopPropagation()
-                  isSharing ? stopScreenShare() : startScreenShare()
+                  if (isSharing) {
+                    stopScreenShare()
+                  } else {
+                    startScreenShare()
+                  }
                 }}
                 className={`absolute top-0 right-0 z-10 p-2 sm:p-3 rounded-full shadow-lg transition-all hover:scale-105 ${isSharing
                   ? 'bg-red-500 hover:bg-red-600 text-white'
