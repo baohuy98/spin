@@ -395,19 +395,6 @@ export default function ViewerPage() {
                             </div>
                         </div>
 
-                        {/* Spin Result Display */}
-                        {spinResult && (
-                            <div className="bg-linear-to-br from-yellow-400 to-orange-500 rounded-lg p-6 shadow-lg">
-                                <div className="text-center space-y-3">
-                                    <div className="text-5xl">🎉</div>
-                                    <h3 className="text-lg font-bold text-white">Winner!</h3>
-                                    <div className="text-3xl font-bold text-white bg-white/20 rounded-lg py-3">
-                                        {spinResult}
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
                         {/* Chat & Comments */}
                         <div className="flex-1 min-h-[400px]">
                             <ChatView
