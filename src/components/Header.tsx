@@ -1,37 +1,39 @@
 import { useTheme } from "@/components/ThemeProvider";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { AnimatePresence, motion } from "framer-motion";
+import {
+  Link2,
+  LogOut,
   Moon,
+  QrCode,
   Share2,
   Sun,
-  Link2,
-  QrCode,
 } from "lucide-react";
-import { Button } from "../components/ui/button";
-import { useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
 import { QRCodeSVG } from "qrcode.react";
+import { useState } from "react";
 import { toast } from "sonner";
+import { Button } from "../components/ui/button";
 
 interface HeaderProps {
   roomId?: string;
   onCopyLink?: () => void;
   onShowQRCode?: () => void;
   getRoomLink?: () => string;
+  onLeave?: () => void;
 }
 
-export function Header({ roomId, onCopyLink, getRoomLink }: HeaderProps) {
+export function Header({ roomId, onCopyLink, getRoomLink, onLeave }: HeaderProps) {
   const { theme, setTheme } = useTheme();
   const [showQRModal, setShowQRModal] = useState(false);
 
@@ -72,8 +74,8 @@ export function Header({ roomId, onCopyLink, getRoomLink }: HeaderProps) {
       <TooltipProvider>
         <div className="flex items-center gap-1">
 
-          {roomId && (
-            <DropdownMenu>
+          {
+            getRoomLink && (<DropdownMenu>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <DropdownMenuTrigger asChild>
@@ -96,8 +98,10 @@ export function Header({ roomId, onCopyLink, getRoomLink }: HeaderProps) {
                   <span>Show QR Code</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+            </DropdownMenu>)
+          }
+
+
 
           <Tooltip>
             <TooltipTrigger asChild>
@@ -113,6 +117,20 @@ export function Header({ roomId, onCopyLink, getRoomLink }: HeaderProps) {
               <p>{theme === "dark" ? "Light Mode" : "Dark Mode"}</p>
             </TooltipContent>
           </Tooltip>
+
+
+          {onLeave && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={onLeave} className="text-destructive hover:text-destructive hover:bg-destructive/10">
+                  <LogOut className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Leave Room</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
 
 
         </div>

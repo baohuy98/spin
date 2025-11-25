@@ -94,7 +94,7 @@ export default function ViewerPage() {
     const videoContainerRef = useRef<HTMLDivElement>(null)
 
     // Socket.io for room management
-    const { socket, isConnected, roomData, error, joinRoom, onSpinResult, isRoomClosed, isHostDisconnected, messages, sendChatMessage, reactToMessage } = useSocket()
+    const { socket, isConnected, roomData, error, joinRoom, leaveRoom, onSpinResult, isRoomClosed, isHostDisconnected, messages, sendChatMessage, reactToMessage } = useSocket()
 
     // Handle host disconnection/reconnection toasts
     useEffect(() => {
@@ -173,6 +173,56 @@ export default function ViewerPage() {
         navigate('/')
     }
 
+    // Emit room data to App component for Header
+    useEffect(() => {
+        console.log("🔍 ViewerPage useEffect triggered", {
+            hasRoomId: !!roomData?.roomId,
+            roomId: roomData?.roomId,
+            viewerMember: viewerMember?.genID
+        })
+
+        if (roomData?.roomId) {
+            setTimeout(() => {
+                const event = new CustomEvent('roomDataUpdate', {
+                    detail: {
+                        roomId: roomData.roomId,
+                        getRoomLink: () => {
+                            if (!roomData?.roomId) return ''
+                            return `${window.location.origin}/viewer?roomId=${roomData.roomId}`
+                        },
+                        onLeave: () => {
+                            if (!roomId || !viewerMember) {
+                                console.log("⚠️ Missing roomId or viewerMember", { roomId, viewerMember })
+                                return
+                            }
+
+                            // Leave the room via socket
+                            leaveRoom(roomId, viewerMember.genID)
+
+                            // Clear session storage
+                            sessionStorage.removeItem('roomData')
+                            sessionStorage.removeItem('viewerMember')
+
+                            navigate('/')
+                        }
+                    }
+                })
+                window.dispatchEvent(event)
+            }, 500);
+
+        }
+    }, [roomData?.roomId, roomId, viewerMember])
+
+    // Cleanup: clear room data when component unmounts
+    useEffect(() => {
+        return () => {
+            const clearEvent = new CustomEvent('roomDataUpdate', {
+                detail: {}
+            })
+            window.dispatchEvent(clearEvent)
+        }
+    }, [])
+
     // Attach remote stream to video element
     useEffect(() => {
         if (videoRef.current && remoteStream) {
@@ -204,20 +254,14 @@ export default function ViewerPage() {
     }, [])
 
 
-    // Handle errors - reset join state when room not found
+    // Handle errors
     useEffect(() => {
-        if (error) {
-            setHasJoined(false)
-            // If room not found, clear sessionStorage
-            if (error.includes('not found') || error.includes('does not exist')) {
-                toast.error('Room not found. Please check the Room ID.')
-                sessionStorage.removeItem('roomData')
-                sessionStorage.removeItem('viewerMemberId')
-            }
+        if (error && (error.includes('not found') || error.includes('does not exist'))) {
+            toast.error('Room not found. Please check the Room ID.')
+            sessionStorage.removeItem('roomData')
+            sessionStorage.removeItem('viewerMemberId')
         }
     }, [error])
-
-
 
     // Main viewer interface
     return (

@@ -1,6 +1,6 @@
 import ChatView from '@/components/ChatView'
 import { AnimatePresence, motion } from 'framer-motion'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import SpinWheel from '../../components/SpinWheel'
@@ -44,7 +44,7 @@ export default function HostPage() {
   const roomCreatedRef = useRef(false)
 
   // Socket.io for room management
-  const { socket, isConnected, roomData, createRoom, emitSpinResult, messages, sendChatMessage, reactToMessage } = useSocket()
+  const { socket, isConnected, roomData, createRoom, leaveRoom, emitSpinResult, messages, sendChatMessage, reactToMessage } = useSocket()
 
   // Generate shareable room link - relies on roomData from the socket
   const getRoomLink = () => {
@@ -128,7 +128,8 @@ export default function HostPage() {
           getRoomLink: () => {
             if (!roomData?.roomId) return ''
             return `${window.location.origin}/viewer?roomId=${roomData.roomId}`
-          }
+          },
+          onLeave: handleLeaveRoom
         }
       })
       window.dispatchEvent(event)
@@ -177,7 +178,7 @@ export default function HostPage() {
     }
   }
 
-  const handleLeaveRoom = () => {
+  const handleLeaveRoom = useCallback(() => {
     if (!roomData || !hostMember) return
 
     // Stop screen sharing if active
@@ -195,7 +196,7 @@ export default function HostPage() {
     // Navigate back to home
     toast.success('Left room successfully')
     navigate('/')
-  }
+  }, [roomData, hostMember, isSharing, stopScreenShare, leaveRoom, navigate])
 
   const handleSpin = () => {
     if (isSpinning || items.filter(i => i.visible).length === 0) return
