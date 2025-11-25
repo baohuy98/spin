@@ -52,7 +52,6 @@ export function Header({ roomId, onCopyLink, getRoomLink, onLeave }: HeaderProps
       }
     }
   };
-
   const handleShowQRCode = () => {
     setShowQRModal(true);
   };
