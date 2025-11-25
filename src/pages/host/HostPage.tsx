@@ -368,10 +368,10 @@ export default function HostPage() {
 
   return (
     <div className="min-h-screen bg-background pt-16 sm:pt-20 pb-6 sm:pb-10">
-      <div className="container mx-auto px-2 sm:px-4">
+      <div className="container mx-auto ">
         <div className="flex flex-col lg:flex-row gap-4 sm:gap-8">
           {/* Left Panel - Wheel and Chat */}
-          <div className="flex-1 flex flex-col items-center px-2 sm:px-4">
+          <div className="flex-1 flex flex-col items-center ">
             {/* Wheel with sound toggle */}
             <div className="relative w-full max-w-[280px] sm:max-w-[400px] md:max-w-[500px]">
               {/* Sound toggle - top left corner */}
@@ -404,7 +404,7 @@ export default function HostPage() {
             </div>
 
             {/* Chat below wheel */}
-            <div className="w-full max-w-[500px] mt-6 sm:mt-8 bg-white/10 backdrop-blur-md rounded-xl overflow-hidden min-h-[400px] flex flex-col">
+            <div className="w-full  mt-6 sm:mt-8 bg-white/10 backdrop-blur-md rounded-xl overflow-hidden min-h-[400px] flex flex-col">
               <ChatView
                 roomId={roomData?.roomId || null}
                 currentUserId={hostMember?.genID || ''}
