@@ -23,14 +23,18 @@ function AppContent() {
 
   // Listen for custom events from HostPage to update room data
   useEffect(() => {
+    console.log("✅ App: Setting up roomDataUpdate listener")
+
     const handleRoomDataUpdate = (event: Event) => {
       const customEvent = event as RoomDataEvent
+      console.log("🚀 App received roomDataUpdate event:", customEvent.detail)
       setRoomData(customEvent.detail)
     }
 
     window.addEventListener('roomDataUpdate', handleRoomDataUpdate)
 
     return () => {
+      console.log("❌ App: Removing roomDataUpdate listener")
       window.removeEventListener('roomDataUpdate', handleRoomDataUpdate)
     }
   }, [])
