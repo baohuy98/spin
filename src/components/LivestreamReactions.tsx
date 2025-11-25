@@ -1,45 +1,47 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import type { LivestreamReaction } from '../hooks/useSocket'
 import FloatingReaction from './FloatingReaction'
-
-interface Reaction {
-    id: string
-    emoji: string
-}
 
 const REACTION_EMOJIS = ['❤️', '👍', '😂', '😮', '🔥', '👏', '🎉', '💯']
 
-export default function LivestreamReactions() {
-    const [reactions, setReactions] = useState<Reaction[]>([])
+interface LivestreamReactionsProps {
+    onSendReaction: (emoji: string) => void
+    incomingReactions: LivestreamReaction[]
+}
 
-    const addReaction = (emoji: string) => {
-        const id = `${Date.now()}-${Math.random()}`
-        setReactions(prev => [...prev, { id, emoji }])
-    }
+export default function LivestreamReactions({ onSendReaction, incomingReactions }: LivestreamReactionsProps) {
+    const [completedIds, setCompletedIds] = useState<Set<string>>(new Set())
 
-    const removeReaction = (id: string) => {
-        setReactions(prev => prev.filter(r => r.id !== id))
+    // Filter out completed reactions
+    const activeReactions = useMemo(() => {
+        return incomingReactions.filter(reaction => !completedIds.has(reaction.id))
+    }, [incomingReactions, completedIds])
+
+    const handleReactionComplete = (id: string) => {
+        setCompletedIds(prev => new Set(prev).add(id))
     }
 
     return (
         <div className="absolute inset-0 pointer-events-none">
             {/* Floating Reactions Container */}
             <div className="absolute inset-0 overflow-hidden">
-                {reactions.map(reaction => (
+                {activeReactions.map(reaction => (
                     <FloatingReaction
                         key={reaction.id}
                         id={reaction.id}
                         emoji={reaction.emoji}
-                        onComplete={removeReaction}
+                        userName={reaction.userName}
+                        onComplete={handleReactionComplete}
                     />
                 ))}
             </div>
 
             {/* Reaction Buttons - Bottom Right */}
-            <div className="absolute bottom-6 right-6 flex flex-row gap-2 pointer-events-auto opacity-0 group-hover:opacity-100">
+            <div className="absolute bottom-6 right-6 flex flex-row gap-2 pointer-events-auto opacity-0 group-hover:opacity-100 transition-opacity">
                 {REACTION_EMOJIS.map(emoji => (
                     <button
                         key={emoji}
-                        onClick={() => addReaction(emoji)}
+                        onClick={() => onSendReaction(emoji)}
                         className="w-12 h-12 bg-black/40 hover:bg-black/60 backdrop-blur-sm rounded-full flex items-center justify-center text-2xl transition-all hover:scale-110 active:scale-95"
                         title={`Send ${emoji} reaction`}
                     >

@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
+import LivestreamReactions from '../../components/LivestreamReactions'
 import SpinWheel from '../../components/SpinWheel'
 import { useSocket } from '../../hooks/useSocket'
 import { useWebRTC } from '../../hooks/useWebRTC'
@@ -69,7 +70,7 @@ export default function HostPage() {
   const roomCreatedRef = useRef(false)
 
   // Socket.io for room management
-  const { socket, isConnected, roomData, createRoom, leaveRoom, emitSpinResult, messages, sendChatMessage, } = useSocket()
+  const { socket, isConnected, roomData, createRoom, leaveRoom, emitSpinResult, messages, sendChatMessage, livestreamReactions, sendLivestreamReaction } = useSocket()
 
   // Sound effects for spinning
   const { startSpinSound, playWinSound, stopSpinSound } = useSpinSound()
@@ -410,6 +411,16 @@ export default function HostPage() {
                   rotation={rotation}
                 />
               </div>
+
+              {/* Livestream Reactions */}
+              <LivestreamReactions
+                onSendReaction={(emoji) => {
+                  if (roomData?.roomId && hostMember) {
+                    sendLivestreamReaction(roomData.roomId, hostMember.genID, hostMember.name, emoji)
+                  }
+                }}
+                incomingReactions={livestreamReactions}
+              />
             </div>
 
             {/* Chat below wheel */}

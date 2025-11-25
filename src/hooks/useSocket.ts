@@ -39,6 +39,14 @@ export interface ChatMessage {
   reactions?: MessageReaction[]
 }
 
+export interface LivestreamReaction {
+  id: string
+  emoji: string
+  userId: string
+  userName: string
+  timestamp: number
+}
+
 export function useSocket(options: UseSocketOptions = {}) {
   const { url = 'http://localhost:3003', autoConnect = true } = options
   const socketRef = useRef<Socket | null>(null)
@@ -74,6 +82,7 @@ export function useSocket(options: UseSocketOptions = {}) {
   const [isRoomClosed, setIsRoomClosed] = useState(false)
   const [isHostDisconnected, setIsHostDisconnected] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [livestreamReactions, setLivestreamReactions] = useState<LivestreamReaction[]>([])
   const pendingJoinRef = useRef<string | null>(null) // Track pending join request
 
   useEffect(() => {
@@ -200,6 +209,16 @@ export function useSocket(options: UseSocketOptions = {}) {
             : msg
         ))
       })
+
+      // Livestream reaction events
+      newSocket.on('livestream-reaction', (data: LivestreamReaction) => {
+        console.log('Received livestream reaction:', data)
+        setLivestreamReactions(prev => [...prev, data])
+        // Auto-remove after animation duration
+        setTimeout(() => {
+          setLivestreamReactions(prev => prev.filter(r => r.id !== data.id))
+        }, 3500) // 3.5 seconds (max animation duration + buffer)
+      })
     }
 
     return () => {
@@ -296,6 +315,12 @@ export function useSocket(options: UseSocketOptions = {}) {
     }
   }
 
+  const sendLivestreamReaction = (roomId: string, userId: string, userName: string, emoji: string) => {
+    if (socketRef.current) {
+      socketRef.current.emit('livestream-reaction', { roomId, userId, userName, emoji })
+    }
+  }
+
   const clearError = () => {
     setError(null)
   }
@@ -315,6 +340,8 @@ export function useSocket(options: UseSocketOptions = {}) {
     isHostDisconnected,
     messages,
     sendChatMessage,
-    reactToMessage
+    reactToMessage,
+    livestreamReactions,
+    sendLivestreamReaction
   }
 }
