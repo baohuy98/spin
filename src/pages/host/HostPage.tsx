@@ -46,12 +46,6 @@ export default function HostPage() {
   // Socket.io for room management
   const { socket, isConnected, roomData, createRoom, leaveRoom, emitSpinResult, messages, sendChatMessage, reactToMessage } = useSocket()
 
-  // Generate shareable room link - relies on roomData from the socket
-  const getRoomLink = () => {
-    if (!roomData?.roomId) return ''
-    return `${window.location.origin}/viewer?roomId=${roomData.roomId}`
-  }
-
   // Get current room ID from the socket state
   const getCurrentRoomId = () => {
     return roomData?.roomId || ''
@@ -118,33 +112,6 @@ export default function HostPage() {
       videoRef.current.srcObject = localStream
     }
   }, [localStream])
-
-  // Emit room data to App component for Header
-  useEffect(() => {
-    if (roomData?.roomId) {
-      const event = new CustomEvent('roomDataUpdate', {
-        detail: {
-          roomId: roomData.roomId,
-          getRoomLink: () => {
-            if (!roomData?.roomId) return ''
-            return `${window.location.origin}/viewer?roomId=${roomData.roomId}`
-          },
-          onLeave: handleLeaveRoom
-        }
-      })
-      window.dispatchEvent(event)
-    }
-  }, [roomData?.roomId])
-
-  // Cleanup: clear room data when component unmounts
-  useEffect(() => {
-    return () => {
-      const clearEvent = new CustomEvent('roomDataUpdate', {
-        detail: {}
-      })
-      window.dispatchEvent(clearEvent)
-    }
-  }, [])
 
   const toggleVisibility = (id: string) => {
     setItems(items.map(item =>

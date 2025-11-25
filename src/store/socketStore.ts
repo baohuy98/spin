@@ -1,6 +1,6 @@
-import { create } from 'zustand'
 import { io, Socket } from 'socket.io-client'
 import { toast } from 'sonner'
+import { create } from 'zustand'
 import type { ChatMessage, MemberDetail, MessageReaction } from '../hooks/useSocket'
 
 interface RoomData {
@@ -68,6 +68,7 @@ export const useSocketStore = create<SocketState>((set, get) => ({
   isRoomClosed: false,
   isHostDisconnected: false,
   messages: [],
+  genId: '',
 
   initializeSocket: (url = 'http://localhost:3003') => {
     const existingSocket = get().socket

@@ -32,27 +32,48 @@ import {
   DialogHeader,
   DialogTitle
 } from "@/components/ui/dialog";
+import { useSocketStore } from "@/store/socketStore";
+import { useLocation, useNavigate } from "react-router-dom";
 
-interface HeaderProps {
-  roomId?: string;
-  onCopyLink?: () => void;
-  onShowQRCode?: () => void;
-  getRoomLink?: () => string;
-  onLeave?: () => void;
-}
-
-export function Header({ roomId, onCopyLink, getRoomLink, onLeave }: HeaderProps) {
+export function Header() {
   const { theme, setTheme } = useTheme();
   const [showQRModal, setShowQRModal] = useState(false);
+
+  const { roomData, leaveRoom } = useSocketStore()
+
+  const location = useLocation()
+  const navigate = useNavigate()
+
+  const getRoomLink = () => {
+    if (!roomData?.roomId) return ''
+    return `${window.location.origin}/viewer?roomId=${roomData.roomId}`
+  }
+
+  const handleLeave = () => {
+    const loggedInUserData = localStorage.getItem('loggedInUser');
+    if (!roomData?.roomId || !loggedInUserData) return
+
+    const parsedUser = JSON.parse(loggedInUserData);
+    leaveRoom(roomData.roomId, parsedUser.genID)
+
+    // Clear session storage
+    sessionStorage.removeItem('roomData')
+    sessionStorage.removeItem('roomDataTimestamp')
+    sessionStorage.removeItem('viewerMember')
+
+    // Navigate to home
+    toast.success('Left room successfully')
+    navigate('/')
+  }
+
+  const isInRoom = location.pathname === '/host' || location.pathname === '/viewer'
 
   const toggleTheme = () => {
     setTheme(theme === "light" ? "dark" : "light");
   };
 
   const handleCopyLink = () => {
-    if (onCopyLink) {
-      onCopyLink();
-    } else if (getRoomLink) {
+    if (getRoomLink) {
       const link = getRoomLink();
       if (link) {
         navigator.clipboard.writeText(link);
@@ -78,71 +99,74 @@ export function Header({ roomId, onCopyLink, getRoomLink, onLeave }: HeaderProps
         </div>
       </div>
 
-      {/* Action Icons Section */}
-      <TooltipProvider>
-        <div className="flex items-center gap-1">
-          {
-            getRoomLink && (<DropdownMenu>
+      {isInRoom &&
+        <>
+          {/* Action Icons Section */}
+          <TooltipProvider>
+            <div className="flex items-center gap-1">
+              {
+                (<DropdownMenu>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <Share2 className="h-5 w-5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Share</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem onClick={handleCopyLink}>
+                      <Link2 className="mr-2 h-4 w-4" />
+                      <span>Copy Link</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleShowQRCode}>
+                      <QrCode className="mr-2 h-4 w-4" />
+                      <span>Show QR Code</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>)
+              }
+
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon">
-                      <Share2 className="h-5 w-5" />
-                    </Button>
-                  </DropdownMenuTrigger>
+                  <Button variant="ghost" size="icon" onClick={toggleTheme}>
+                    {theme === "dark" ? (
+                      <Sun className="h-5 w-5" />
+                    ) : (
+                      <Moon className="h-5 w-5" />
+                    )}
+                  </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Share</p>
+                  <p>{theme === "dark" ? "Light Mode" : "Dark Mode"}</p>
                 </TooltipContent>
               </Tooltip>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={handleCopyLink}>
-                  <Link2 className="mr-2 h-4 w-4" />
-                  <span>Copy Link</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleShowQRCode}>
-                  <QrCode className="mr-2 h-4 w-4" />
-                  <span>Show QR Code</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>)
-          }
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={toggleTheme}>
-                {theme === "dark" ? (
-                  <Sun className="h-5 w-5" />
-                ) : (
-                  <Moon className="h-5 w-5" />
-                )}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{theme === "dark" ? "Light Mode" : "Dark Mode"}</p>
-            </TooltipContent>
-          </Tooltip>
 
 
-          {onLeave && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={onLeave} className="text-destructive hover:text-destructive hover:bg-destructive/10">
-                  <LogOut className="h-5 w-5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Leave Room</p>
-              </TooltipContent>
-            </Tooltip>
-          )}
 
-        </div>
-      </TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={handleLeave} className="text-destructive hover:text-destructive hover:bg-destructive/10">
+                    <LogOut className="h-5 w-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Leave Room</p>
+                </TooltipContent>
+              </Tooltip>
 
+            </div>
+          </TooltipProvider>
+
+
+        </>}
       {/* QR Code Dialog */}
       {
-        showQRModal && roomId && getRoomLink && (
+        showQRModal && (
           <Dialog open={showQRModal}>
             <DialogContent className="sm:max-w-md" showCloseButton={false}>
               <DialogHeader>
@@ -162,7 +186,7 @@ export function Header({ roomId, onCopyLink, getRoomLink, onLeave }: HeaderProps
                 <div className="space-y-2">
                   <p className="text-sm text-muted-foreground font-semibold">Room ID</p>
                   <div className="bg-accent px-4 py-3 rounded-lg">
-                    <p className="font-mono font-bold text-lg text-primary">{roomId}</p>
+                    <p className="font-mono font-bold text-lg text-primary">{roomData?.roomId}</p>
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -182,8 +206,6 @@ export function Header({ roomId, onCopyLink, getRoomLink, onLeave }: HeaderProps
           </Dialog>
         )
       }
-
-
     </header>
   );
 }
