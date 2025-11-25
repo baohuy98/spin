@@ -80,12 +80,12 @@ export default function SpinWheel({ items, isSpinning, spinDuration, rotation }:
                     strokeWidth="2"
                   />
 
-                  {/* Text centered */}
+                  {/* Text at top center - not overlapping SPIN button */}
                   <text
                     x="250"
-                    y="250"
+                    y="100"
                     fill="white"
-                    fontSize="18"
+                    fontSize="24"
                     fontWeight="bold"
                     textAnchor="middle"
                     dominantBaseline="middle"
@@ -150,7 +150,7 @@ export default function SpinWheel({ items, isSpinning, spinDuration, rotation }:
             )
           })}
 
-          {/* Center circle */}
+          {/* Center circle - SPIN button */}
           <circle
             cx="250"
             cy="250"

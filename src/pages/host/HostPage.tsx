@@ -8,7 +8,7 @@ import { useSocket } from '../../hooks/useSocket'
 import { useWebRTC } from '../../hooks/useWebRTC'
 import { useSpinSound } from '../../hooks/useSpinSound'
 import type { Member } from '../../utils/interface/MemberInterface'
-import { Eye, Volume2, VolumeX, Plus, Trash2 } from 'lucide-react'
+import { Volume2, VolumeX, Plus, Trash2, MonitorUp } from 'lucide-react'
 
 interface WheelItem {
   id: string
@@ -66,7 +66,6 @@ export default function HostPage() {
   const [manualMembers, setManualMembers] = useState<WheelItem[]>([]) // Manually added members (not in room)
   const [manualMemberName, setManualMemberName] = useState('')
 
-  const videoRef = useRef<HTMLVideoElement>(null)
   const roomCreatedRef = useRef(false)
 
   // Socket.io for room management
@@ -82,7 +81,7 @@ export default function HostPage() {
   }
 
   // WebRTC for screen sharing
-  const { localStream, isSharing, error, startScreenShare, stopScreenShare } = useWebRTC({
+  const { isSharing, startScreenShare, stopScreenShare } = useWebRTC({
     socket,
     roomId: roomData?.roomId || null,
     isHost: true,
@@ -153,12 +152,7 @@ export default function HostPage() {
     setItems(coloredMembers)
   }, [roomData, manualMembers, hostMember])
 
-  // Attach local stream to video element
-  useEffect(() => {
-    if (videoRef.current && localStream) {
-      videoRef.current.srcObject = localStream
-    }
-  }, [localStream])
+
 
   // Emit room data to App component for Header
   useEffect(() => {
@@ -389,6 +383,21 @@ export default function HostPage() {
                 {soundEnabled ? <Volume2 className="w-4 h-4 sm:w-5 sm:h-5" /> : <VolumeX className="w-4 h-4 sm:w-5 sm:h-5" />}
               </button>
 
+              {/* Screen share toggle - top right corner */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  isSharing ? stopScreenShare() : startScreenShare()
+                }}
+                className={`absolute top-0 right-0 z-10 p-2 sm:p-3 rounded-full shadow-lg transition-all hover:scale-105 ${isSharing
+                  ? 'bg-red-500 hover:bg-red-600 text-white'
+                  : 'bg-blue-500 hover:bg-blue-600 text-white'
+                  }`}
+                title={isSharing ? 'Stop Screen Share' : 'Start Screen Share'}
+              >
+                <MonitorUp className="w-4 h-4 sm:w-5 sm:h-5" />
+              </button>
+
               {/* Clickable wheel */}
               <div
                 className={`cursor-pointer ${isSpinning || items.filter(i => i.visible).length === 0 ? 'cursor-not-allowed opacity-80' : 'hover:scale-[1.02] transition-transform'}`}
@@ -483,54 +492,6 @@ export default function HostPage() {
               </div>
             </div>
 
-            {/* Screen Share Card */}
-            <div className="bg-card border rounded-lg p-6 space-y-4">
-              <h3 className="text-xl font-semibold">Screen Share</h3>
-
-              {error && (
-                <div className="bg-destructive/10 border border-destructive rounded-lg p-3">
-                  <p className="text-destructive text-sm">{error}</p>
-                </div>
-              )}
-
-              {isSharing && localStream && (
-                <div className="relative rounded-lg overflow-hidden bg-black">
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    muted
-                    className="w-full h-40 object-contain"
-                  />
-                  <div className="absolute top-2 right-2 flex items-center gap-2">
-                    <div className="px-2 py-1 bg-black/70 rounded text-white text-xs font-semibold flex items-center gap-1">
-                      <Eye className="w-3 h-3" />
-                      {Math.max(0, (roomData?.members?.length || 1) - 1)}
-                    </div>
-                    <div className="px-2 py-1 bg-red-500 rounded text-white text-xs font-semibold flex items-center gap-1">
-                      <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                      LIVE
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <button
-                onClick={isSharing ? stopScreenShare : startScreenShare}
-                className={`w-full px-4 py-3 font-semibold rounded-lg transition-colors ${isSharing
-                  ? 'bg-red-500 hover:bg-red-600 text-white'
-                  : 'bg-green-500 hover:bg-green-600 text-white'
-                  }`}
-              >
-                {isSharing ? 'Stop Sharing' : 'Start Screen Share'}
-              </button>
-
-              <button
-                onClick={handleLeaveRoom}
-                className="w-full px-4 py-3 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg transition-colors"
-              >
-                Leave Room
-              </button>
-            </div>
 
             {/* Controls Card */}
             <div className="bg-card border rounded-lg p-6 space-y-6">
@@ -552,21 +513,43 @@ export default function HostPage() {
               <AnimatePresence mode="wait">
                 {showSettings && (
                   <motion.div
-                    initial={{ opacity: 0, scaleY: 0, originY: 0 }}
+                    initial={{ opacity: 0, height: 0, scaleY: 0, originY: 0 }}
                     animate={{
                       opacity: 1,
+                      height: "auto",
                       scaleY: 1,
                       transition: {
-                        duration: 0.5,
-                        ease: [0.4, 0, 0.2, 1] // cubic-bezier for smooth easing
+                        height: {
+                          duration: 0.4,
+                          ease: [0.25, 0.46, 0.45, 0.94] // easeOutQuad - smoother
+                        },
+                        opacity: {
+                          duration: 0.3,
+                          ease: "easeOut"
+                        },
+                        scaleY: {
+                          duration: 0.4,
+                          ease: [0.25, 0.46, 0.45, 0.94]
+                        }
                       }
                     }}
                     exit={{
                       opacity: 0,
+                      height: 0,
                       scaleY: 0,
                       transition: {
-                        duration: 0.3,
-                        ease: [0.4, 0, 1, 1]
+                        height: {
+                          duration: 0.3,
+                          ease: [0.55, 0.085, 0.68, 0.53] // easeInQuad
+                        },
+                        opacity: {
+                          duration: 0.2,
+                          ease: "easeIn"
+                        },
+                        scaleY: {
+                          duration: 0.3,
+                          ease: [0.55, 0.085, 0.68, 0.53]
+                        }
                       }
                     }}
                     className="bg-accent rounded-lg p-4 space-y-4 overflow-hidden"
@@ -611,12 +594,12 @@ export default function HostPage() {
                   </button>
                 </div>
                 {manualMembers.length > 0 && (
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">Manual members ({manualMembers.length}):</p>
+                  <div className="space-y-1 pr-3 max-h-40 overflow-y-auto">
+                    <p className="text-xs sticky top-0 bg-accent text-muted-foreground">Manual members ({manualMembers.length}):</p>
                     {manualMembers.map((member) => (
                       <div
                         key={member.id}
-                        className="flex items-center justify-between bg-background rounded p-2"
+                        className="flex  items-center justify-between bg-background rounded p-2"
                       >
                         <div className="flex items-center gap-2">
                           <div
@@ -667,8 +650,8 @@ export default function HostPage() {
               </div>
 
               {/* Members List */}
-              <div className="space-y-2 max-h-96 overflow-y-auto">
-                <h3 className="text-sm font-medium">
+              <div className="space-y-2 max-h-96 pr-3 overflow-y-auto">
+                <h3 className="text-sm font-medium sticky top-0 bg-card">
                   Members for Spinning ({items.filter(i => i.visible).length}/{items.length} visible)
                 </h3>
                 {items.map((item) => (
