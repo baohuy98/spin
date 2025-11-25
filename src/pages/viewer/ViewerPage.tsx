@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { AlertCircle, CheckCircle2, Loader2, Maximize, Minimize, XCircle } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Eye, Loader2, Maximize, Minimize, XCircle } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -269,9 +269,15 @@ export default function ViewerPage() {
                             <div className="flex items-center justify-between mb-4">
                                 <h3 className="text-xl font-semibold">Host's Screen</h3>
                                 {remoteStream && (
-                                    <div className="px-3 py-1 bg-red-500 rounded-full text-white text-xs font-semibold flex items-center gap-2">
-                                        <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                                        LIVE
+                                    <div className="flex items-center gap-2">
+                                        <div className="px-3 py-1 bg-black/70 rounded-full text-white text-xs font-semibold flex items-center gap-2">
+                                            <Eye className="w-3.5 h-3.5" />
+                                            {roomData?.members?.length || 0}
+                                        </div>
+                                        <div className="px-3 py-1 bg-red-500 rounded-full text-white text-xs font-semibold flex items-center gap-2">
+                                            <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                                            LIVE
+                                        </div>
                                     </div>
                                 )}
                             </div>
