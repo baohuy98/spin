@@ -16,8 +16,10 @@ export default function SpinWheel({ items, isSpinning, spinDuration, rotation }:
 
   if (visibleItems.length === 0) {
     return (
-      <div className="flex items-center justify-center w-full h-full">
-        <p className="text-white text-xl">Add items to start spinning!</p>
+      <div className="flex items-center justify-center w-full aspect-square max-w-[500px] mx-auto bg-muted/20 rounded-full">
+        <p className="text-muted-foreground text-sm sm:text-lg md:text-xl text-center px-4">
+          Add items to start spinning!
+        </p>
       </div>
     )
   }
@@ -25,16 +27,23 @@ export default function SpinWheel({ items, isSpinning, spinDuration, rotation }:
   const segmentAngle = 360 / visibleItems.length
 
   return (
-    <div className="relative flex items-center justify-center">
-      {/* Pointer/Arrow at top */}
+    <div className="relative flex items-center justify-center w-full max-w-[500px] mx-auto">
+      {/* Pointer/Arrow at top - responsive size */}
       <div className="absolute top-0 z-20 -translate-y-1/2">
-        <div className="w-0 h-0 border-l-[20px] border-l-transparent border-r-[20px] border-r-transparent border-t-[40px] border-t-red-500 drop-shadow-lg" />
+        <div className="w-0 h-0
+          border-l-[12px] border-l-transparent
+          border-r-[12px] border-r-transparent
+          border-t-[24px] border-t-red-500
+          sm:border-l-[16px] sm:border-r-[16px] sm:border-t-[32px]
+          md:border-l-[20px] md:border-r-[20px] md:border-t-[40px]
+          drop-shadow-lg"
+        />
       </div>
 
       {/* Wheel Container */}
       <motion.div
         ref={wheelRef}
-        className="relative"
+        className="relative w-full"
         animate={{ rotate: rotation }}
         transition={{
           duration: isSpinning ? spinDuration : 0,
@@ -42,10 +51,8 @@ export default function SpinWheel({ items, isSpinning, spinDuration, rotation }:
         }}
       >
         <svg
-          width="500"
-          height="500"
           viewBox="0 0 500 500"
-          className="drop-shadow-2xl"
+          className="w-full h-auto drop-shadow-2xl"
         >
           {/* Outer circle border */}
           <circle
@@ -59,6 +66,40 @@ export default function SpinWheel({ items, isSpinning, spinDuration, rotation }:
 
           {/* Draw each segment */}
           {visibleItems.map((item, index) => {
+            // Special case: if there's only one segment, draw a full circle
+            if (visibleItems.length === 1) {
+              return (
+                <g key={item.id}>
+                  {/* Full circle segment */}
+                  <circle
+                    cx="250"
+                    cy="250"
+                    r="240"
+                    fill={item.color}
+                    stroke="white"
+                    strokeWidth="2"
+                  />
+
+                  {/* Text centered */}
+                  <text
+                    x="250"
+                    y="250"
+                    fill="white"
+                    fontSize="18"
+                    fontWeight="bold"
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    className="pointer-events-none select-none"
+                    style={{
+                      textShadow: '2px 2px 4px rgba(0,0,0,0.5)'
+                    }}
+                  >
+                    {item.text}
+                  </text>
+                </g>
+              )
+            }
+
             const startAngle = (index * segmentAngle - 90) * (Math.PI / 180)
             const endAngle = ((index + 1) * segmentAngle - 90) * (Math.PI / 180)
             const midAngle = (startAngle + endAngle) / 2

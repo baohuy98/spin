@@ -48,7 +48,7 @@ export default function ViewerPage() {
 
 
     // Use the logged-in member data directly - no lookup in memberList
-    const [viewerMember, setViewerMember] = useState<Member | null>(() => {
+    const [viewerMember] = useState<Member | null>(() => {
         // Priority: 1. Current login data (preSelectedMember), 2. sessionStorage (for page reload)
         if (preSelectedMember) {
             // Clear old sessionStorage if we have fresh login data
@@ -79,13 +79,17 @@ export default function ViewerPage() {
         }
     }, [viewerMember])
 
-    // Redirect to home if not logged in
+    // Redirect to home if not logged in, preserving roomId for after login
     useEffect(() => {
         if (!viewerMember) {
             toast.error('Please login first to join a room')
+            // Preserve the roomId so user can auto-join after login
+            if (roomId) {
+                sessionStorage.setItem('pendingRoomId', roomId)
+            }
             setTimeout(() => navigate('/'), 1000)
         }
-    }, [viewerMember, navigate])
+    }, [viewerMember, navigate, roomId])
 
     const [spinResult, setSpinResult] = useState<string | null>(null)
     const [isFullscreen, setIsFullscreen] = useState(false)
@@ -260,6 +264,9 @@ export default function ViewerPage() {
             toast.error('Room not found. Please check the Room ID.')
             sessionStorage.removeItem('roomData')
             sessionStorage.removeItem('viewerMemberId')
+
+            setHasJoined(false)
+            setRoomId('')
         }
     }, [error])
 
