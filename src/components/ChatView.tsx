@@ -1,5 +1,6 @@
+import { cn } from '@/lib/utils'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowUpIcon, MessageCircle } from 'lucide-react'
+import { ArrowUpIcon, MessageCircle, Radio } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import christmasBackground from '../assets/christmas-santa-claus-png.png'
 import EmojiPickerPopover from './EmojiPickerPopover'
@@ -61,15 +62,6 @@ export default function ChatView({
     setInputMessage('')
   }
 
-  const formatTime = (timestamp: number) => {
-    const date = new Date(timestamp)
-    return date.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    })
-  }
-
   const isOwnMessage = (userId: string) => userId === currentUserId
 
   return (
@@ -87,9 +79,18 @@ export default function ChatView({
         <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-0" />
       )}
 
-      <div className="px-4 py-3 border-b flex items-center gap-2 relative z-10">
-        <MessageCircle className="w-5 h-5 text-primary" />
-        <h3 className="text-lg font-semibold flex-1">Chat</h3>
+      <div className="px-4 py-3 border-b">
+        <div className="flex items-center gap-2">
+          <Radio className="w-5 h-5 text-primary animate-pulse" />
+          <h3 className="text-lg font-semibold flex-1">Live Chat</h3>
+
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <div className={cn("w-2 h-2 rounded-full bg-green-500 animate-pulse", {
+              'bg-destructive': !isConnected
+            })} />
+            <span>Live</span>
+          </div>
+        </div>
       </div>
 
       {/* Messages Area */}
@@ -114,7 +115,7 @@ export default function ChatView({
                 >
                   <div className={`group flex items-end gap-1 ${isOwnMessage(msg.userId) ? 'flex-row-reverse' : 'flex-row'}`}>
                     <div
-                      className={`max-w-[80%] rounded-lg px-3 py-2 ${isOwnMessage(msg.userId)
+                      className={`rounded-lg px-3 py-2 ${isOwnMessage(msg.userId)
                         ? 'bg-primary text-primary-foreground'
                         : 'bg-accent'
                         }`}
@@ -124,15 +125,7 @@ export default function ChatView({
                           {msg.userName}
                         </p>
                       )}
-                      <p className="text-sm whitespace-pre-line">{msg.message}</p>
-                      <p
-                        className={`text-xs mt-1 ${isOwnMessage(msg.userId)
-                          ? 'text-primary-foreground/60'
-                          : 'text-muted-foreground'
-                          }`}
-                      >
-                        {formatTime(msg.timestamp)}
-                      </p>
+                      <p className="text-sm whitespace-pre-line wrap-anywhere">{msg.message}</p>
                       {/* Reactions display */}
                       {msg.reactions && msg.reactions.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-1.5 -mb-1">
