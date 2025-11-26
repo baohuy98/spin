@@ -337,6 +337,13 @@ export function useSocket(options: UseSocketOptions = {}) {
     setError(null)
   }
 
+  const updateTheme = (roomId: string, theme: string) => {
+    if (socketRef.current) {
+      console.log('[useSocket] Emitting update-theme event for room:', roomId, 'theme:', theme)
+      socketRef.current.emit('update-theme', { roomId, theme })
+    }
+  }
+
   return {
     socket,
     isConnected,
@@ -354,6 +361,7 @@ export function useSocket(options: UseSocketOptions = {}) {
     sendChatMessage,
     reactToMessage,
     livestreamReactions,
-    sendLivestreamReaction
+    sendLivestreamReaction,
+    updateTheme
   }
 }

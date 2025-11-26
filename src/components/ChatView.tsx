@@ -1,8 +1,10 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowUpIcon, MessageCircle } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import christmasBackground from '../assets/christmas-santa-claus-png.png'
 import EmojiPickerPopover from './EmojiPickerPopover'
 import MessageReactionPicker from './MessageReactionPicker'
+import { useViewTheme } from './ViewThemeProvider'
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } from './ui/input-group'
 import { ScrollArea } from './ui/scroll-area'
 import { Separator } from './ui/separator'
@@ -41,6 +43,7 @@ export default function ChatView({
 }: ChatViewProps) {
   const [inputMessage, setInputMessage] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const { viewTheme } = useViewTheme()
 
   // Auto-scroll to bottom when new message arrives
   useEffect(() => {
@@ -70,14 +73,27 @@ export default function ChatView({
   const isOwnMessage = (userId: string) => userId === currentUserId
 
   return (
-    <div className="bg-card border rounded-lg flex flex-col ">
-      <div className="px-4 py-3 border-b flex items-center gap-2">
+    <div
+      className="bg-card border rounded-lg flex flex-col relative overflow-hidden"
+      style={viewTheme === 'christmas' ? {
+        backgroundImage: `url(${christmasBackground})`,
+        backgroundSize: 'contain',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      } : {}}
+    >
+      {/* Semi-transparent overlay for better text readability when Christmas theme is active */}
+      {viewTheme === 'christmas' && (
+        <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-0" />
+      )}
+
+      <div className="px-4 py-3 border-b flex items-center gap-2 relative z-10">
         <MessageCircle className="w-5 h-5 text-primary" />
         <h3 className="text-lg font-semibold flex-1">Chat</h3>
       </div>
 
       {/* Messages Area */}
-      <ScrollArea className="h-[300px] lg:h-[420px] px-4 py-3">
+      <ScrollArea className="h-[300px] lg:h-[420px] px-4 py-3 relative z-10">
         <div className="space-y-3">
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -152,7 +168,7 @@ export default function ChatView({
       </ScrollArea>
 
       {/* Input Area */}
-      <div >
+      <div className="relative z-10">
         <Separator />
         <form onSubmit={handleSendMessage}>
           <InputGroup className='border-none' >
