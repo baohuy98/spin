@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Route, Routes, useNavigate } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { Header } from './components/Header'
 import Home from './pages/Home'
 import HostPage from './pages/host/HostPage'
 import ViewerPage from './pages/viewer/ViewerPage'
+import { toast } from 'sonner'
 
 interface RoomDataEvent extends Event {
   detail: {
@@ -17,6 +18,7 @@ interface RoomDataEvent extends Event {
 }
 
 function AppContent() {
+  const navigate = useNavigate()
 
   // Initialize room data from sessionStorage if on host or viewer page (for page reload)
   const [roomData, setRoomData] = useState<{
@@ -55,6 +57,15 @@ function AppContent() {
             return {
               roomId: parsed.roomId,
               getRoomLink: () => `${window.location.origin}/viewer?roomId=${parsed.roomId}`,
+              onLeave: () => {
+                // Clear session storage
+                sessionStorage.removeItem('roomData')
+                sessionStorage.removeItem('roomDataTimestamp')
+                sessionStorage.removeItem('pickedMembers')
+                // Navigate back to home
+                toast.success('Left room successfully')
+                window.location.href = '/'
+              },
               pickedMembers,
               isHost: true
             }
@@ -79,6 +90,14 @@ function AppContent() {
             return {
               roomId: roomId,
               getRoomLink: () => `${window.location.origin}/viewer?roomId=${roomId}`,
+              onLeave: () => {
+                // Clear session storage
+                sessionStorage.removeItem('roomData')
+                sessionStorage.removeItem('viewerMember')
+                // Navigate back to home
+                toast.success('Left room successfully')
+                window.location.href = '/'
+              },
               isHost: false
             }
           }

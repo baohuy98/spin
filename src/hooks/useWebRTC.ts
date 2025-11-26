@@ -26,6 +26,7 @@ export function useWebRTC({ socket, roomId, isHost, isConnected = false }: UseWe
   const iceCandidatesQueueRef = useRef<RTCIceCandidateInit[]>([])
 
   // WebRTC configuration
+  // Tạo một instance kết nối peer mới. Object configuration chỉ định các ICE server (STUN/TURN) được dùng để khám phá địa chỉ IP công khai và vượt qua NAT/firewall.
   const configuration: RTCConfiguration = {
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },

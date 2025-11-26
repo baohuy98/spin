@@ -110,7 +110,7 @@ export default function ViewerPage() {
     const videoContainerRef = useRef<HTMLDivElement>(null)
 
     // Socket.io for room management
-    const { socket, isConnected, roomData, error, joinRoom, leaveRoom, onSpinResult, isRoomClosed, isHostDisconnected, messages, sendChatMessage, reactToMessage, livestreamReactions, sendLivestreamReaction } = useSocket()
+    const { socket, isConnected, roomData, error, joinRoom, leaveRoom, onSpinResult, isHostDisconnected, messages, sendChatMessage, reactToMessage, livestreamReactions, sendLivestreamReaction } = useSocket()
     console.log('socket in view page', socket)
     // Handle host disconnection/reconnection toasts
     useEffect(() => {
