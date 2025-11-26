@@ -18,7 +18,7 @@ interface RoomDataEvent extends Event {
 
 function AppContent() {
 
-  // Initialize room data from sessionStorage if on host page (for page reload)
+  // Initialize room data from sessionStorage if on host or viewer page (for page reload)
   const [roomData, setRoomData] = useState<{
     roomId?: string
     getRoomLink?: () => string
@@ -26,8 +26,10 @@ function AppContent() {
     pickedMembers?: Array<{ name: string; timestamp: Date }>
     isHost?: boolean
   }>(() => {
-    // Only restore if we're on the host page
-    if (window.location.pathname === '/host') {
+    const pathname = window.location.pathname
+
+    // Restore for host page
+    if (pathname === '/host') {
       const savedRoomData = sessionStorage.getItem('roomData')
       const savedPickedMembers = sessionStorage.getItem('pickedMembers')
 
@@ -55,6 +57,29 @@ function AppContent() {
               getRoomLink: () => `${window.location.origin}/viewer?roomId=${parsed.roomId}`,
               pickedMembers,
               isHost: true
+            }
+          }
+        } catch {
+          // Invalid data, ignore
+        }
+      }
+    }
+    // Restore for viewer page
+    else if (pathname === '/viewer') {
+      const savedRoomData = sessionStorage.getItem('roomData')
+      const savedViewerMember = sessionStorage.getItem('viewerMember')
+      const urlParams = new URLSearchParams(window.location.search)
+      const urlRoomId = urlParams.get('roomId')
+
+      if ((savedRoomData || urlRoomId) && savedViewerMember) {
+        try {
+          const roomId = urlRoomId || (savedRoomData ? JSON.parse(savedRoomData).roomId : null)
+
+          if (roomId) {
+            return {
+              roomId: roomId,
+              getRoomLink: () => `${window.location.origin}/viewer?roomId=${roomId}`,
+              isHost: false
             }
           }
         } catch {

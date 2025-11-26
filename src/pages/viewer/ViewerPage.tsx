@@ -110,8 +110,8 @@ export default function ViewerPage() {
     const videoContainerRef = useRef<HTMLDivElement>(null)
 
     // Socket.io for room management
-    const { socket, isConnected, roomData, error, joinRoom, leaveRoom, onSpinResult, isHostDisconnected, messages, sendChatMessage, reactToMessage, livestreamReactions, sendLivestreamReaction } = useSocket()
-
+    const { socket, isConnected, roomData, error, joinRoom, leaveRoom, onSpinResult, isRoomClosed, isHostDisconnected, messages, sendChatMessage, reactToMessage, livestreamReactions, sendLivestreamReaction } = useSocket()
+    console.log('socket in view page', socket)
     // Handle host disconnection/reconnection toasts
     useEffect(() => {
         if (isHostDisconnected) {
@@ -209,36 +209,66 @@ export default function ViewerPage() {
             viewerMember: viewerMember?.name
         })
 
+        // If we have roomData, emit it
         if (roomData?.roomId) {
-            setTimeout(() => {
-                const event = new CustomEvent('roomDataUpdate', {
-                    detail: {
-                        roomId: roomData.roomId,
-                        getRoomLink: () => {
-                            if (!roomData?.roomId) return ''
-                            return `${window.location.origin}/viewer?roomId=${roomData.roomId}`
-                        },
-                        onLeave: () => {
-                            if (!roomId || !viewerMember) {
-                                console.log("⚠️ Missing roomId or viewerMember", { roomId, viewerMember })
-                                return
-                            }
-
-                            // Leave the room via socket
-                            leaveRoom(roomId, viewerMember.name)
-
-                            // Clear session storage
-                            sessionStorage.removeItem('roomData')
-                            sessionStorage.removeItem('viewerMember')
-
-                            navigate('/')
+            const event = new CustomEvent('roomDataUpdate', {
+                detail: {
+                    roomId: roomData.roomId,
+                    getRoomLink: () => {
+                        if (!roomData?.roomId) return ''
+                        return `${window.location.origin}/viewer?roomId=${roomData.roomId}`
+                    },
+                    onLeave: () => {
+                        if (!roomId || !viewerMember) {
+                            console.log("⚠️ Missing roomId or viewerMember", { roomId, viewerMember })
+                            return
                         }
-                    }
-                })
-                window.dispatchEvent(event)
-            }, 500);
 
+                        // Leave the room via socket
+                        leaveRoom(roomId, viewerMember.name)
+
+                        // Clear session storage
+                        sessionStorage.removeItem('roomData')
+                        sessionStorage.removeItem('viewerMember')
+
+                        navigate('/')
+                    },
+                    isHost: false
+                }
+            })
+            window.dispatchEvent(event)
         }
+        // If we don't have roomData yet but we are on ViewerPage,
+        // we should still emit isHost: false if we can recover the roomId from storage
+        // This handles the case where roomData is still loading but we want the header to show viewer controls
+        else if (roomId && viewerMember) {
+            console.log('[ViewerPage] Emitting initial roomDataUpdate from local state')
+            const event = new CustomEvent('roomDataUpdate', {
+                detail: {
+                    roomId: roomId,
+                    getRoomLink: () => `${window.location.origin}/viewer?roomId=${roomId}`,
+                    onLeave: () => {
+                        if (!roomId || !viewerMember) {
+                            console.log("⚠️ Missing roomId or viewerMember", { roomId, viewerMember })
+                            return
+                        }
+
+                        // Leave the room via socket
+                        leaveRoom(roomId, viewerMember.name)
+
+                        // Clear session storage
+                        sessionStorage.removeItem('roomData')
+                        sessionStorage.removeItem('viewerMember')
+
+                        navigate('/')
+                    },
+                    isHost: false
+                }
+            })
+            window.dispatchEvent(event)
+        }
+        // leaveRoom and navigate are stable functions and don't need to be in dependencies
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [roomData?.roomId, roomId, viewerMember])
 
     // Cleanup: clear room data when component unmounts

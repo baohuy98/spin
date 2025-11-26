@@ -14,7 +14,7 @@ export function useWebRTC({ socket, roomId, isHost, isConnected = false }: UseWe
   const [isSharing, setIsSharing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [connectionState, setConnectionState] = useState<RTCPeerConnectionState>('new')
-
+  console.log('remote strea in useWebRTC', remoteStream)
   // For host: maintain multiple peer connections (one per viewer)
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map())
   // For viewer: single peer connection to host
