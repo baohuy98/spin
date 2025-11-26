@@ -1,4 +1,3 @@
-import { AnimatePresence, motion } from 'framer-motion'
 import { AlertCircle, CheckCircle2, Eye, Loader2, Maximize, Minimize, XCircle } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
@@ -14,6 +13,11 @@ import { Alert, AlertDescription } from '../../components/ui/alert'
 import { useSocket } from '../../hooks/useSocket'
 import { useWebRTC } from '../../hooks/useWebRTC'
 import type { Member } from '../../utils/interface/MemberInterface'
+
+import {
+    Dialog,
+    DialogContent
+} from "@/components/ui/dialog"
 
 export default function ViewerPage() {
     const navigate = useNavigate()
@@ -106,7 +110,7 @@ export default function ViewerPage() {
     const videoContainerRef = useRef<HTMLDivElement>(null)
 
     // Socket.io for room management
-    const { socket, isConnected, roomData, error, joinRoom, leaveRoom, onSpinResult, isRoomClosed, isHostDisconnected, messages, sendChatMessage, reactToMessage, livestreamReactions, sendLivestreamReaction } = useSocket()
+    const { socket, isConnected, roomData, error, joinRoom, leaveRoom, onSpinResult, isHostDisconnected, messages, sendChatMessage, reactToMessage, livestreamReactions, sendLivestreamReaction } = useSocket()
 
     // Handle host disconnection/reconnection toasts
     useEffect(() => {
@@ -145,7 +149,6 @@ export default function ViewerPage() {
         }
     }, [connectionState])
 
-    const connectedRoomID = roomData?.roomId;
     useEffect(() => {
         if (isConnected && roomId && viewerMember && !hasJoined) {
             console.log('[ViewerPage] Auto-joining room:', roomId, 'with member:', viewerMember.name, viewerMember.name)
@@ -156,14 +159,17 @@ export default function ViewerPage() {
 
     // Listen for spin results - only show popup if this viewer was picked
     useEffect(() => {
+        let timer;
         if (socket && viewerMember) {
             onSpinResult((result: string) => {
                 // Only show the result popup if this viewer was picked
                 if (result === viewerMember.name) {
-                    setSpinResult(result)
+                    setSpinResult(result);
+                    timer = setTimeout(() => { setSpinResult(null) }, 5000)
                 }
             })
         }
+        return clearTimeout(timer);
     }, [socket, onSpinResult, viewerMember]) // Added viewerMember to dependency array
 
     // Listen for host reconnection (when host reloads page)
@@ -194,13 +200,6 @@ export default function ViewerPage() {
             }
         }
     }, [socket, setViewTheme])
-
-    // Handle room closed - show modal instead of auto-redirect
-    const handleRoomClosedConfirm = () => {
-        sessionStorage.removeItem('roomData')
-        sessionStorage.removeItem('viewerMember')
-        navigate('/')
-    }
 
     // Emit room data to App component for Header
     useEffect(() => {
@@ -471,61 +470,20 @@ export default function ViewerPage() {
                 </div>
             </div>
 
-            {/* Spin Result Modal */}
-            <AnimatePresence>
-                {spinResult && (
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.8 }}
-                        className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50"
-                    >
-                        <div className="bg-white rounded-2xl p-8 shadow-2xl">
-                            <div className="text-center space-y-4">
-                                <div className="text-6xl">🎊</div>
-                                <h2 className="text-3xl font-bold text-gray-800">Winner Announced!</h2>
-                                <div className="text-4xl font-bold text-purple-600 py-6 bg-purple-100 rounded-xl px-8">
-                                    {spinResult}
-                                </div>
-                                <p className="text-gray-500 text-sm">This message will disappear in 5 seconds</p>
-                            </div>
+            <Dialog open={!!spinResult} onOpenChange={() => {
+                setSpinResult(null)
+            }}>
+                <DialogContent className="sm:max-w-md">
+                    <div className="text-center space-y-4">
+                        <div className="text-6xl">🎊</div>
+                        <h2 className="text-3xl font-bold text-gray-800">Winner Announced!</h2>
+                        <div className="text-4xl font-bold text-purple-600 py-6 bg-purple-100 rounded-xl px-8">
+                            {spinResult}
                         </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            {/* Room Closed Modal */}
-            <AnimatePresence>
-                {isRoomClosed && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-                    >
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.9 }}
-                            className="bg-white rounded-2xl p-8 shadow-2xl max-w-md mx-4"
-                        >
-                            <div className="text-center space-y-6">
-                                <div className="text-6xl">👋</div>
-                                <h2 className="text-2xl font-bold text-gray-800">Room Closed</h2>
-                                <p className="text-gray-600">
-                                    The host has left and the room has been closed.
-                                </p>
-                                <button
-                                    onClick={handleRoomClosedConfirm}
-                                    className="w-full px-6 py-3 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 transition-colors"
-                                >
-                                    OK
-                                </button>
-                            </div>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+                        <p className="text-gray-500 text-sm">This message will disappear in 5 seconds</p>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }
