@@ -318,8 +318,8 @@ export default function ViewerPage() {
                 </>
             )}
 
-            <div className="container mx-auto px-4 pt-10 h-[calc(100vh-80px)]">
-                <div className="flex flex-col lg:flex-row gap-6 h-full">
+            <div className="container mx-auto px-4 pt-10">
+                <div className="flex flex-col lg:flex-row gap-6">
                     {/* Left Panel - Screen Share */}
                     <div className="flex-1 flex flex-col gap-4">
                         {/* Room Info */}
@@ -361,7 +361,7 @@ export default function ViewerPage() {
 
 
                         {/* Screen Share Display */}
-                        <div className="flex-1 bg-card border rounded-lg p-6 flex flex-col">
+                        <div className="bg-card border rounded-lg p-6 flex flex-col">
                             <div className="flex items-center justify-between mb-4">
                                 <h3 className="text-xl font-semibold">Host's Screen</h3>
                                 {remoteStream && (
@@ -381,7 +381,8 @@ export default function ViewerPage() {
 
                             <div
                                 ref={videoContainerRef}
-                                className="flex-1 relative rounded-lg overflow-hidden min-h-50 bg-black group"
+                                className="relative rounded-lg overflow-hidden bg-black group lg:h-[680px] md:h-[400px] h-[300px]"
+
                             >
                                 {remoteStream ? (
                                     <>
@@ -426,9 +427,9 @@ export default function ViewerPage() {
                     {/* Right Panel - Reserved for Future Features */}
                     <div className="lg:w-96 flex flex-col gap-4">
                         {/* Participants */}
-                        <div className="bg-card flex-1 border rounded-lg p-6 overflow-y-auto">
+                        <div className="bg-card border rounded-lg p-6">
                             <h3 className="text-xl font-semibold mb-4">Participants</h3>
-                            <div className="space-y-2">
+                            <div className="space-y-2 overflow-y-auto h-[200px]" >
                                 {roomData?.members && roomData.members.length > 0 ? (
                                     roomData.membersWithDetails?.map((member) => (
                                         <div
