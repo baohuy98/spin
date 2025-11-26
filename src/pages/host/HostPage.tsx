@@ -3,7 +3,9 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
+import { useTheme } from '../../components/ThemeProvider'
 import LivestreamReactions from '../../components/LivestreamReactions'
+import { SantaImage } from '../../components/SantaImage'
 import { Snowfall } from '../../components/Snowfall'
 import { useViewTheme } from '../../components/ViewThemeProvider'
 import SpinWheel from '../../components/SpinWheel'
@@ -50,6 +52,7 @@ export default function HostPage() {
   const navigate = useNavigate()
   const hostMember = (location.state as { member?: Member })?.member
   const { viewTheme } = useViewTheme()
+  const { theme } = useTheme()
 
   // Initialize wheel items from room members (will be updated when room data loads)
   const [items, setItems] = useState<WheelItem[]>(() =>
@@ -102,7 +105,7 @@ export default function HostPage() {
   }, [pickedMembers])
 
   // Socket.io for room management
-  const { socket, isConnected, roomData, createRoom, leaveRoom, emitSpinResult, messages, sendChatMessage, livestreamReactions, sendLivestreamReaction, reactToMessage } = useSocket()
+  const { socket, isConnected, roomData, createRoom, leaveRoom, emitSpinResult, messages, sendChatMessage, livestreamReactions, sendLivestreamReaction, reactToMessage, updateTheme } = useSocket()
 
   // Sound effects for spinning
   const { startSpinSound, playWinSound, stopSpinSound } = useSpinSound()
@@ -191,6 +194,14 @@ export default function HostPage() {
     handleLeaveRoomRef.current?.()
   }, [])
 
+  // Sync view theme changes to all viewers in the room
+  useEffect(() => {
+    if (roomData?.roomId && viewTheme) {
+      console.log('[HostPage] Theme changed to:', viewTheme, 'emitting to room:', roomData.roomId)
+      updateTheme(roomData.roomId, viewTheme)
+    }
+  }, [viewTheme, roomData?.roomId, updateTheme])
+
   // Update wheel items when socket room data or manual members change
   useEffect(() => {
     const roomMembers: WheelItem[] =
@@ -237,7 +248,8 @@ export default function HostPage() {
             return `${window.location.origin}/viewer?roomId=${roomData.roomId}`
           },
           onLeave: handleLeaveRoom,
-          pickedMembers: pickedMembers
+          pickedMembers: pickedMembers,
+          isHost: true
         }
       })
       window.dispatchEvent(event)
@@ -449,9 +461,17 @@ export default function HostPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background pt-16 sm:pt-20 pb-6 sm:pb-10">
-      {/* Snowfall effect for Christmas theme */}
-      {viewTheme === 'christmas' && <Snowfall />}
+    <div
+      className="min-h-screen bg-background pt-16 sm:pt-20 pb-6 sm:pb-10"
+      style={viewTheme === 'christmas' && theme === 'light' ? { backgroundColor: 'lightcoral' } : {}}
+    >
+      {/* Christmas decorations */}
+      {viewTheme === 'christmas' && (
+        <>
+          <Snowfall />
+          <SantaImage />
+        </>
+      )}
 
       <div className="container mx-auto ">
         <div className="flex flex-col lg:flex-row gap-4 sm:gap-8">

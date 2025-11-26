@@ -12,6 +12,7 @@ interface RoomDataEvent extends Event {
     getRoomLink?: () => string
     onLeave?: () => void
     pickedMembers?: Array<{ name: string; timestamp: Date }>
+    isHost?: boolean
   }
 }
 
@@ -23,6 +24,7 @@ function AppContent() {
     getRoomLink?: () => string
     onLeave?: () => void
     pickedMembers?: Array<{ name: string; timestamp: Date }>
+    isHost?: boolean
   }>(() => {
     // Only restore if we're on the host page
     if (window.location.pathname === '/host') {
@@ -90,6 +92,7 @@ function AppContent() {
         getRoomLink={roomData.getRoomLink}
         onLeave={roomData.onLeave}
         pickedMembers={roomData.pickedMembers}
+        isHost={roomData.isHost}
       />
       <Routes>
         <Route path="/" element={<Home />} />

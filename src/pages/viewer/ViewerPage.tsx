@@ -3,8 +3,10 @@ import { AlertCircle, CheckCircle2, Eye, Loader2, Maximize, Minimize, XCircle } 
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
+import { useTheme } from '../../components/ThemeProvider'
 import ChatView from '../../components/ChatView'
 import LivestreamReactions from '../../components/LivestreamReactions'
+import { SantaImage } from '../../components/SantaImage'
 import { Snowfall } from '../../components/Snowfall'
 import { useViewTheme } from '../../components/ViewThemeProvider'
 import { Alert, AlertDescription } from '../../components/ui/alert'
@@ -16,7 +18,8 @@ export default function ViewerPage() {
     const navigate = useNavigate()
     const location = useLocation()
     const [searchParams] = useSearchParams()
-    const { viewTheme } = useViewTheme()
+    const { viewTheme, setViewTheme } = useViewTheme()
+    const { theme } = useTheme()
 
     // Get member from location state (logged-in user data from Home.tsx)
     const preSelectedMember = (location.state as { member?: Member })?.member
@@ -177,6 +180,20 @@ export default function ViewerPage() {
         }
     }, [socket])
 
+    // Listen for theme updates from the host
+    useEffect(() => {
+        if (socket) {
+            socket.on('theme-updated', (data: { theme: string }) => {
+                console.log('[ViewerPage] Theme updated by host to:', data.theme)
+                setViewTheme(data.theme as 'none' | 'christmas' | 'lunar-new-year')
+            })
+
+            return () => {
+                socket.off('theme-updated')
+            }
+        }
+    }, [socket, setViewTheme])
+
     // Handle room closed - show modal instead of auto-redirect
     const handleRoomClosedConfirm = () => {
         sessionStorage.removeItem('roomData')
@@ -279,9 +296,17 @@ export default function ViewerPage() {
 
     // Main viewer interface
     return (
-        <>
-            {/* Snowfall effect for Christmas theme */}
-            {viewTheme === 'christmas' && <Snowfall />}
+        <div
+            className="min-h-screen"
+            style={viewTheme === 'christmas' && theme === 'light' ? { backgroundColor: 'lightcoral' } : {}}
+        >
+            {/* Christmas decorations */}
+            {viewTheme === 'christmas' && (
+                <>
+                    <Snowfall />
+                    <SantaImage />
+                </>
+            )}
 
             <div className="container mx-auto px-4 pt-10 h-[calc(100vh-80px)]">
                 <div className="flex flex-col lg:flex-row gap-6 h-full">
@@ -490,6 +515,6 @@ export default function ViewerPage() {
                     </motion.div>
                 )}
             </AnimatePresence>
-        </ >
+        </div>
     )
 }

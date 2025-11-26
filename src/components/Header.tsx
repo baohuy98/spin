@@ -42,9 +42,10 @@ interface HeaderProps {
   getRoomLink?: () => string;
   onLeave?: () => void;
   pickedMembers?: Array<{ name: string; timestamp: Date }>;
+  isHost?: boolean; // Only hosts can change the theme
 }
 
-export function Header({ roomId, onCopyLink, getRoomLink, onLeave, pickedMembers = [] }: HeaderProps) {
+export function Header({ roomId, onCopyLink, getRoomLink, onLeave, pickedMembers = [], isHost = false }: HeaderProps) {
   const { theme, setTheme } = useTheme();
   const { viewTheme, setViewTheme } = useViewTheme();
   const [showQRModal, setShowQRModal] = useState(false);
@@ -159,39 +160,41 @@ export function Header({ roomId, onCopyLink, getRoomLink, onLeave, pickedMembers
             </DropdownMenu>)
           }
 
-          {/* Festive Theme Selector */}
-          <DropdownMenu>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon">
-                    {typeof getViewThemeIcon() === 'string' ? (
-                      <span className="text-xl">{getViewThemeIcon()}</span>
-                    ) : (
-                      getViewThemeIcon()
-                    )}
-                  </Button>
-                </DropdownMenuTrigger>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Festive Theme: {getViewThemeLabel()}</p>
-              </TooltipContent>
-            </Tooltip>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={() => setViewTheme('none')}>
-                <Sparkles className="mr-2 h-4 w-4" />
-                <span>None</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setViewTheme('christmas')}>
-                <span className="mr-2 text-lg">🎄</span>
-                <span>Christmas</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setViewTheme('lunar-new-year')}>
-                <span className="mr-2 text-lg">🧧</span>
-                <span>Lunar New Year</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {/* Festive Theme Selector - Only for Hosts */}
+          {isHost && (
+            <DropdownMenu>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon">
+                      {typeof getViewThemeIcon() === 'string' ? (
+                        <span className="text-xl">{getViewThemeIcon()}</span>
+                      ) : (
+                        getViewThemeIcon()
+                      )}
+                    </Button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Festive Theme: {getViewThemeLabel()}</p>
+                </TooltipContent>
+              </Tooltip>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={() => setViewTheme('none')}>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  <span>None</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setViewTheme('christmas')}>
+                  <span className="mr-2 text-lg">🎄</span>
+                  <span>Christmas</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setViewTheme('lunar-new-year')}>
+                  <span className="mr-2 text-lg">🧧</span>
+                  <span>Lunar New Year</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
 
           <Tooltip>
             <TooltipTrigger asChild>

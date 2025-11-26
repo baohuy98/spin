@@ -33,7 +33,7 @@ export default function SpinWheel({ items, isSpinning, spinDuration, rotation }:
     <div className="relative flex items-center justify-center w-full max-w-[500px] mx-auto">
       {/* LED Lights - Only show for Christmas theme */}
       {viewTheme === 'christmas' && (
-        <WheelLEDLights count={24} radius={260} />
+        <WheelLEDLights count={24} />
       )}
 
       {/* Pointer/Arrow at top - responsive size */}
