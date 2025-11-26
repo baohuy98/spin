@@ -14,7 +14,7 @@ export function useWebRTC({ socket, roomId, isHost, isConnected = false }: UseWe
   const [isSharing, setIsSharing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [connectionState, setConnectionState] = useState<RTCPeerConnectionState>('new')
-
+  console.log('remote strea in useWebRTC', remoteStream)
   // For host: maintain multiple peer connections (one per viewer)
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map())
   // For viewer: single peer connection to host
@@ -26,6 +26,7 @@ export function useWebRTC({ socket, roomId, isHost, isConnected = false }: UseWe
   const iceCandidatesQueueRef = useRef<RTCIceCandidateInit[]>([])
 
   // WebRTC configuration
+  // Tạo một instance kết nối peer mới. Object configuration chỉ định các ICE server (STUN/TURN) được dùng để khám phá địa chỉ IP công khai và vượt qua NAT/firewall.
   const configuration: RTCConfiguration = {
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
