@@ -3,12 +3,12 @@ import { AlertCircle, CheckCircle2, Eye, Loader2, Maximize, Minimize, XCircle } 
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { useTheme } from '../../components/ThemeProvider'
 import ChatView from '../../components/ChatView'
 import LivestreamReactions from '../../components/LivestreamReactions'
+import { LunarNewYearEffect } from '../../components/LunarNewYearEffect'
 import { SantaImage } from '../../components/SantaImage'
 import { Snowfall } from '../../components/Snowfall'
-import { LunarNewYearEffect } from '../../components/LunarNewYearEffect'
+import { useTheme } from '../../components/ThemeProvider'
 import { useViewTheme } from '../../components/ViewThemeProvider'
 import { Alert, AlertDescription } from '../../components/ui/alert'
 import { useSocket } from '../../hooks/useSocket'
@@ -336,7 +336,7 @@ export default function ViewerPage() {
                                         <XCircle className="w-3 h-3" />
                                         Failed
                                     </div>
-                                ) : connectedRoomID ? (
+                                ) : isConnected ? (
                                     <div className="px-3 py-1 rounded-full text-xs font-semibold bg-green-500 text-white flex items-center gap-1.5">
                                         <CheckCircle2 className="w-3 h-3" />
                                         Connected
