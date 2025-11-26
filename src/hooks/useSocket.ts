@@ -8,7 +8,6 @@ interface UseSocketOptions {
 }
 
 export interface MemberDetail {
-  genID: string
   name: string
   isHost: boolean
 }
@@ -273,7 +272,9 @@ export function useSocket(options: UseSocketOptions = {}) {
 
       console.log('[useSocket] Attempting to join room:', { roomId, memberId, name, socketId: currentSocketId, socketChanged })
       pendingJoinRef.current = joinKey // Mark as pending
-      sessionStorage.setItem('lastJoinedSocketId', currentSocketId) // Track this socket
+      if (currentSocketId) {
+        sessionStorage.setItem('lastJoinedSocketId', currentSocketId) // Track this socket
+      }
       socketRef.current.emit('join-room', { roomId, memberId, name })
     } else {
       console.error('[useSocket] Cannot join room - socket not connected')

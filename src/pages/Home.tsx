@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 export default function Home() {
-  const [genID, setGenID] = useState('');
   const [name, setName] = useState('');
   const [roomID, setRoomID] = useState('');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -33,29 +32,17 @@ export default function Home() {
   }, []);
 
   const handleLogin = () => {
-    if (!name.trim() || !genID.trim()) {
-      alert('Please enter both name and ID');
+    if (!name.trim()) {
+      alert('Please enter your name');
       return;
     }
 
-    const loggedInUserData = localStorage.getItem('loggedInUser');
-    if (loggedInUserData) {
-      try {
-        const parsedUser = JSON.parse(loggedInUserData);
-        if (parsedUser.genID === genID.trim()) {
-          alert('This ID is already logged in on another tab.');
-          return;
-        }
-      } catch {
-        localStorage.removeItem('loggedInUser');
-      }
-    }
-    localStorage.setItem('loggedInUser', JSON.stringify({ genID: genID.trim(), name: name.trim() }));
+    localStorage.setItem('loggedInUser', JSON.stringify({ name: name.trim() }));
     setIsLoggedIn(true);
 
     // Auto-navigate to room if there's a pending room ID
     if (pendingRoomId) {
-      const member = { genID: genID.trim(), name: name.trim() };
+      const member = { name: name.trim() };
       sessionStorage.removeItem('pendingRoomId'); // Clear the pending room ID
       navigate(`/viewer?roomId=${pendingRoomId}`, { state: { member } });
     }
@@ -64,7 +51,6 @@ export default function Home() {
   const handleLogout = () => {
     localStorage.removeItem('loggedInUser');
     setIsLoggedIn(false);
-    setGenID('');
     setName('');
   };
 
@@ -73,7 +59,7 @@ export default function Home() {
       alert('Please login first');
       return;
     }
-    const member = { genID: genID.trim(), name: name.trim() };
+    const member = { name: name.trim() };
     navigate('/host', { state: { member } });
   };
 
@@ -86,7 +72,7 @@ export default function Home() {
       alert('Please enter a room ID to join');
       return;
     }
-    const member = { genID: genID.trim(), name: name.trim() };
+    const member = { name: name.trim() };
     navigate(`/viewer?roomId=${roomID.trim()}`, { state: { member } });
   };
 
@@ -96,7 +82,7 @@ export default function Home() {
         <div className="text-center mb-12">
           <h1 className="text-6xl font-bold text-white mb-4">Welcome to Spin</h1>
           <p className="text-xl text-white/90">
-            {isLoggedIn ? `Logged in as ${name} (ID: ${genID})` : 'Enter your name and ID to get started'}
+            {isLoggedIn ? `Logged in as ${name}` : 'Enter your name to get started'}
           </p>
         </div>
 
@@ -112,21 +98,8 @@ export default function Home() {
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Enter your name..."
-                  className="w-full px-4 py-3 rounded-xl bg-white/20 text-white placeholder-white/60 border-2 border-white/30 focus:outline-none focus:border-white transition-colors"
-                />
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="genID" className="text-white font-semibold text-sm block">
-                  Your ID <span className="text-red-400">*</span>
-                </label>
-                <input
-                  id="genID"
-                  type="text"
-                  value={genID}
-                  onChange={(e) => setGenID(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-                  placeholder="Enter your ID (1-8)..."
+                  placeholder="Enter your name..."
                   className="w-full px-4 py-3 rounded-xl bg-white/20 text-white placeholder-white/60 border-2 border-white/30 focus:outline-none focus:border-white transition-colors"
                 />
               </div>
@@ -134,7 +107,7 @@ export default function Home() {
                 onClick={handleLogin}
                 className="w-full px-6 py-4 bg-green-500 text-white font-bold text-lg rounded-xl hover:bg-green-600 transition-all hover:scale-105 shadow-lg"
               >
-                Login
+                Join
               </button>
             </div>
           ) : (
@@ -170,7 +143,7 @@ export default function Home() {
                   onClick={handleLogout}
                   className="w-full px-6 py-4 bg-red-500 text-white font-bold text-lg rounded-xl hover:bg-red-600 transition-all hover:scale-105 shadow-lg"
                 >
-                  Logout
+                  Leave
                 </button>
               </div>
             </>
