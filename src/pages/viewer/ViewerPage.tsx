@@ -414,25 +414,23 @@ export default function ViewerPage() {
                         </div>
 
                         {/* Chat & Comments */}
-                        <div className="flex-1 min-h-[400px]">
-                            <ChatView
-                                roomId={roomId}
-                                currentUserId={viewerMember?.name || ''}
-                                currentUserName={viewerMember?.name || ''}
-                                messages={messages}
-                                onSendMessage={(message) => {
-                                    if (roomId) {
-                                        sendChatMessage(roomId, viewerMember?.name || '', viewerMember?.name || '', message)
-                                    }
-                                }}
-                                onReactToMessage={(messageId, emoji) => {
-                                    if (roomId) {
-                                        reactToMessage(roomId, messageId, viewerMember?.name || '', emoji)
-                                    }
-                                }}
-                                isConnected={isConnected}
-                            />
-                        </div>
+                        <ChatView
+                            roomId={roomId}
+                            currentUserId={viewerMember?.name || ''}
+                            currentUserName={viewerMember?.name || ''}
+                            messages={messages}
+                            onSendMessage={(message) => {
+                                if (roomId) {
+                                    sendChatMessage(roomId, viewerMember?.name || '', viewerMember?.name || '', message)
+                                }
+                            }}
+                            onReactToMessage={(messageId, emoji) => {
+                                if (roomId) {
+                                    reactToMessage(roomId, messageId, viewerMember?.name || '', emoji)
+                                }
+                            }}
+                            isConnected={isConnected}
+                        />
                     </div>
                 </div>
             </div>
