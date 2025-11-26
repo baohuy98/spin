@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import LivestreamReactions from '../../components/LivestreamReactions'
+import { Snowfall } from '../../components/Snowfall'
+import { useViewTheme } from '../../components/ViewThemeProvider'
 import SpinWheel from '../../components/SpinWheel'
 import { useSocket } from '../../hooks/useSocket'
 import { useSpinSound } from '../../hooks/useSpinSound'
@@ -47,6 +49,7 @@ export default function HostPage() {
   const location = useLocation()
   const navigate = useNavigate()
   const hostMember = (location.state as { member?: Member })?.member
+  const { viewTheme } = useViewTheme()
 
   // Initialize wheel items from room members (will be updated when room data loads)
   const [items, setItems] = useState<WheelItem[]>(() =>
@@ -90,6 +93,7 @@ export default function HostPage() {
 
   const roomCreatedRef = useRef(false)
   const previewVideoRef = useRef<HTMLVideoElement>(null)
+  const addMemberTimeoutRef = useRef<number | null>(null)
 
   // Save picked members to sessionStorage whenever it changes
   useEffect(() => {
@@ -286,23 +290,46 @@ export default function HostPage() {
   }
 
   const addManualMember = () => {
-    if (!manualMemberName.trim()) {
+    // Debounce to prevent duplicate calls
+    if (addMemberTimeoutRef.current) {
+      console.log('[addManualMember] Debounced - ignoring duplicate call')
+      return
+    }
+
+    const trimmedName = manualMemberName.trim()
+
+    if (!trimmedName) {
       toast.error('Please enter a name')
       return
     }
 
-    // Generate a unique ID for manual member
-    const manualId = `manual-${Date.now()}`
-    const newMember: WheelItem = {
-      id: manualId,
-      text: manualMemberName.trim(),
-      color: generateColorForMember(items.length), // Will be reassigned by useEffect
-      visible: true
-    }
+    console.log('[addManualMember] Adding member:', trimmedName)
 
-    setManualMembers(prev => [...prev, newMember])
+    // Set debounce timeout
+    addMemberTimeoutRef.current = window.setTimeout(() => {
+      addMemberTimeoutRef.current = null
+    }, 300)
+
+    // Generate a unique ID for manual member with both timestamp and random for uniqueness
+    const manualId = `manual-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+
+    setManualMembers(prev => {
+      console.log('[addManualMember] Previous manual members:', prev.length)
+
+      const newMember: WheelItem = {
+        id: manualId,
+        text: trimmedName,
+        color: generateColorForMember(prev.length + (roomData?.membersWithDetails?.length || 0)),
+        visible: true
+      }
+
+      const updated = [...prev, newMember]
+      console.log('[addManualMember] Updated manual members:', updated.length)
+      return updated
+    })
+
     setManualMemberName('')
-    toast.success(`Added ${manualMemberName.trim()} to spin list`)
+    toast.success(`Added ${trimmedName} to spin list`)
   }
 
   const removeManualMember = (id: string) => {
@@ -423,6 +450,9 @@ export default function HostPage() {
 
   return (
     <div className="min-h-screen bg-background pt-16 sm:pt-20 pb-6 sm:pb-10">
+      {/* Snowfall effect for Christmas theme */}
+      {viewTheme === 'christmas' && <Snowfall />}
+
       <div className="container mx-auto ">
         <div className="flex flex-col lg:flex-row gap-4 sm:gap-8">
           {/* Left Panel - Wheel and Chat */}
@@ -480,7 +510,7 @@ export default function HostPage() {
               <LivestreamReactions
                 onSendReaction={(emoji) => {
                   if (roomData?.roomId && hostMember) {
-                    sendLivestreamReaction(roomData.roomId, hostMember.genID, hostMember.name, emoji)
+                    sendLivestreamReaction(roomData.roomId, hostMember.name, hostMember.name, emoji)
                   }
                 }}
                 incomingReactions={livestreamReactions}
@@ -501,7 +531,7 @@ export default function HostPage() {
                 }}
                 onReactToMessage={(messageId, emoji) => {
                   if (roomData?.roomId && hostMember) {
-                    reactToMessage(roomData.roomId, messageId, hostMember.genID || '', emoji)
+                    reactToMessage(roomData.roomId, messageId, hostMember.name || '', emoji)
                   }
                 }}
                 isConnected={isConnected}
@@ -659,12 +689,18 @@ export default function HostPage() {
                     type="text"
                     value={manualMemberName}
                     onChange={(e) => setManualMemberName(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && addManualMember()}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        addManualMember()
+                      }
+                    }}
                     placeholder="Enter name..."
                     className="flex-1 px-3 py-2 rounded-lg bg-background border text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                   <button
                     onClick={addManualMember}
+                    type="button"
                     className="p-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
                     title="Add member"
                   >
@@ -728,7 +764,7 @@ export default function HostPage() {
               </div>
 
               {/* Members List */}
-              <div className="space-y-2 max-h-96 pr-3 overflow-y-auto">
+              <div className="space-y-2 max-h-61 pr-3 overflow-y-auto">
                 <h3 className="text-sm font-medium sticky top-0 bg-card">
                   Members for Spinning ({items.filter(i => i.visible).length}/{items.length} visible)
                 </h3>

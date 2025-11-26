@@ -1,5 +1,7 @@
 import { useRef } from 'react'
 import { motion } from 'framer-motion'
+import { WheelLEDLights } from './WheelLEDLights'
+import { useViewTheme } from './ViewThemeProvider'
 
 interface SpinWheelProps {
   items: { id: string; text: string; color: string; visible: boolean }[]
@@ -10,6 +12,7 @@ interface SpinWheelProps {
 
 export default function SpinWheel({ items, isSpinning, spinDuration, rotation }: SpinWheelProps) {
   const wheelRef = useRef<HTMLDivElement>(null)
+  const { viewTheme } = useViewTheme()
 
   // Filter only visible items
   const visibleItems = items.filter(item => item.visible)
@@ -28,6 +31,11 @@ export default function SpinWheel({ items, isSpinning, spinDuration, rotation }:
 
   return (
     <div className="relative flex items-center justify-center w-full max-w-[500px] mx-auto">
+      {/* LED Lights - Only show for Christmas theme */}
+      {viewTheme === 'christmas' && (
+        <WheelLEDLights count={24} radius={260} />
+      )}
+
       {/* Pointer/Arrow at top - responsive size */}
       <div className="absolute top-0 z-20 -translate-y-1/2">
         <div className="w-0 h-0

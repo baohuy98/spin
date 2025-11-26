@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Snowfall } from '../components/Snowfall';
+import { useViewTheme } from '../components/ViewThemeProvider';
 
 export default function Home() {
+  const { viewTheme } = useViewTheme();
   const [name, setName] = useState('');
   const [roomID, setRoomID] = useState('');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -78,6 +81,8 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-linear-to-br from-blue-500 to-purple-600">
+      {/* Snowfall effect for Christmas theme */}
+      {viewTheme === 'christmas' && <Snowfall />}
       <div className="max-w-md w-full px-8">
         <div className="text-center mb-12">
           <h1 className="text-6xl font-bold text-white mb-4">Welcome to Spin</h1>
