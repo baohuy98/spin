@@ -1,6 +1,5 @@
 import ChatView from '@/components/ChatView'
 import { AnimatePresence, motion } from 'framer-motion'
-import { MonitorUp, Plus, Trash2, Volume2, VolumeX } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -10,6 +9,7 @@ import { useSocket } from '../../hooks/useSocket'
 import { useSpinSound } from '../../hooks/useSpinSound'
 import { useWebRTC } from '../../hooks/useWebRTC'
 import type { Member } from '../../utils/interface/MemberInterface'
+import { Volume2, VolumeX, Plus, Trash2, MonitorUp, Eye, EyeOff, X } from 'lucide-react'
 
 interface WheelItem {
   id: string
@@ -51,7 +51,7 @@ export default function HostPage() {
   // Initialize wheel items from room members (will be updated when room data loads)
   const [items, setItems] = useState<WheelItem[]>(() =>
     hostMember ? [{
-      id: hostMember.genID,
+      id: `member-${hostMember.name}`,
       text: hostMember.name,
       color: generateColorForMember(0),
       visible: true
@@ -66,8 +66,36 @@ export default function HostPage() {
   const [recentWinners, setRecentWinners] = useState<string[]>([]) // Track recent winners for fairer selection
   const [manualMembers, setManualMembers] = useState<WheelItem[]>([]) // Manually added members (not in room)
   const [manualMemberName, setManualMemberName] = useState('')
+  const [pickedMembers, setPickedMembers] = useState<Array<{ name: string; timestamp: Date }>>(() => {
+    // Restore picked members from sessionStorage on mount
+    const savedPickedMembers = sessionStorage.getItem('pickedMembers')
+    console.log('[HostPage] Initializing pickedMembers, savedPickedMembers:', savedPickedMembers)
+    if (savedPickedMembers) {
+      try {
+        const parsed = JSON.parse(savedPickedMembers)
+        // Convert timestamp strings back to Date objects
+        const restored = parsed.map((member: { name: string; timestamp: string }) => ({
+          name: member.name,
+          timestamp: new Date(member.timestamp)
+        }))
+        console.log('[HostPage] Restored picked members:', restored.length)
+        return restored
+      } catch (e) {
+        console.error('[HostPage] Failed to parse picked members:', e)
+        return []
+      }
+    }
+    return []
+  }) // Track all picked members with timestamps
 
   const roomCreatedRef = useRef(false)
+  const previewVideoRef = useRef<HTMLVideoElement>(null)
+
+  // Save picked members to sessionStorage whenever it changes
+  useEffect(() => {
+    sessionStorage.setItem('pickedMembers', JSON.stringify(pickedMembers))
+    console.log('[HostPage] Saved picked members to sessionStorage:', pickedMembers.length)
+  }, [pickedMembers])
 
   // Socket.io for room management
   const { socket, isConnected, roomData, createRoom, leaveRoom, emitSpinResult, messages, sendChatMessage, livestreamReactions, sendLivestreamReaction, reactToMessage } = useSocket()
@@ -82,12 +110,15 @@ export default function HostPage() {
   }
 
   // WebRTC for screen sharing
-  const { isSharing, startScreenShare, stopScreenShare } = useWebRTC({
+  const { isSharing, startScreenShare, stopScreenShare, localStream } = useWebRTC({
     socket,
     roomId: roomData?.roomId || null,
     isHost: true,
     isConnected
   })
+
+  // Preview sidebar visibility
+  const [showPreviewSidebar, setShowPreviewSidebar] = useState(true)
 
   // Create room on mount - reuse existing room if available for stable room ID
   useEffect(() => {
@@ -98,43 +129,77 @@ export default function HostPage() {
         try {
           const parsedData = JSON.parse(savedRoomData)
           // If we have saved room data for this host, rooms are now persistent
-          if (parsedData.hostId === hostMember.genID) {
+          if (parsedData.hostId === hostMember.name) {
             console.log('[HostPage] Room persists across reloads, creating/rejoining room:', parsedData.roomId)
             // Creating room with same host will reuse existing room (stable room ID)
-            createRoom(hostMember.genID, hostMember.name)
+            createRoom(hostMember.name, hostMember.name)
             return
           } else {
-            // Different host, clear old data
+            // Different host, clear old data including picked members
             console.log('[HostPage] Clearing old room data for different host')
             sessionStorage.removeItem('roomData')
             sessionStorage.removeItem('roomDataTimestamp')
+            sessionStorage.removeItem('pickedMembers')
           }
         } catch (e) {
           console.error('[HostPage] Failed to parse saved room data:', e)
           sessionStorage.removeItem('roomData')
           sessionStorage.removeItem('roomDataTimestamp')
+          sessionStorage.removeItem('pickedMembers')
         }
       }
       // Create new room if no saved data or different host
-      console.log('[HostPage] Creating new room for host:', hostMember.genID, hostMember.name)
-      createRoom(hostMember.genID, hostMember.name)
+      console.log('[HostPage] Creating new room for host:', hostMember.name, hostMember.name)
+      createRoom(hostMember.name, hostMember.name)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConnected, hostMember])
+
+  // Store a ref for the leave handler to avoid recreating it
+  const handleLeaveRoomRef = useRef<(() => void) | null>(null)
+
+  // Handle leaving room - using ref to keep stable reference
+  useEffect(() => {
+    handleLeaveRoomRef.current = () => {
+      if (!roomData || !hostMember) return
+
+      // Stop screen sharing if active
+      if (isSharing) {
+        stopScreenShare()
+      }
+
+      // Leave the room
+      leaveRoom(roomData.roomId, hostMember.name)
+
+      // Clear session storage
+      sessionStorage.removeItem('roomData')
+      sessionStorage.removeItem('roomDataTimestamp')
+      sessionStorage.removeItem('pickedMembers')
+
+      // Navigate back to home
+      toast.success('Left room successfully')
+      navigate('/')
+    }
+  }, [roomData, hostMember, isSharing, stopScreenShare, leaveRoom, navigate])
+
+  // Stable callback that uses the ref
+  const handleLeaveRoom = useCallback(() => {
+    handleLeaveRoomRef.current?.()
+  }, [])
 
   // Update wheel items when socket room data or manual members change
   useEffect(() => {
     const roomMembers: WheelItem[] =
       roomData && roomData.membersWithDetails && roomData.membersWithDetails.length > 0
         ? roomData.membersWithDetails.map((member, index) => ({
-          id: member.genID,
+          id: `member-${member.name}`,
           text: member.name,
           color: generateColorForMember(index),
           visible: true
         }))
         : hostMember
           ? [{
-            id: hostMember.genID,
+            id: `member-${hostMember.name}`,
             text: hostMember.name,
             color: generateColorForMember(0),
             visible: true
@@ -157,7 +222,9 @@ export default function HostPage() {
 
   // Emit room data to App component for Header
   useEffect(() => {
+    console.log('[HostPage] useEffect triggered - roomId:', roomData?.roomId, 'pickedMembers:', pickedMembers.length)
     if (roomData?.roomId) {
+      console.log('[HostPage] Emitting roomDataUpdate with pickedMembers:', pickedMembers.length, pickedMembers)
       const event = new CustomEvent('roomDataUpdate', {
         detail: {
           roomId: roomData.roomId,
@@ -165,12 +232,15 @@ export default function HostPage() {
             if (!roomData?.roomId) return ''
             return `${window.location.origin}/viewer?roomId=${roomData.roomId}`
           },
-          onLeave: handleLeaveRoom
+          onLeave: handleLeaveRoom,
+          pickedMembers: pickedMembers
         }
       })
       window.dispatchEvent(event)
+    } else {
+      console.log('[HostPage] Not emitting - no roomId yet')
     }
-  }, [roomData?.roomId])
+  }, [roomData?.roomId, pickedMembers, handleLeaveRoom])
 
   // Cleanup: clear room data when component unmounts
   useEffect(() => {
@@ -181,6 +251,13 @@ export default function HostPage() {
       window.dispatchEvent(clearEvent)
     }
   }, [])
+
+  // Connect preview video element to local stream
+  useEffect(() => {
+    if (previewVideoRef.current && localStream) {
+      previewVideoRef.current.srcObject = localStream
+    }
+  }, [localStream, showPreviewSidebar])
 
   const toggleVisibility = (id: string) => {
     setItems(items.map(item =>
@@ -232,26 +309,6 @@ export default function HostPage() {
     setManualMembers(prev => prev.filter(m => m.id !== id))
     toast.success('Removed from spin list')
   }
-
-  const handleLeaveRoom = useCallback(() => {
-    if (!roomData || !hostMember) return
-
-    // Stop screen sharing if active
-    if (isSharing) {
-      stopScreenShare()
-    }
-
-    // Leave the room
-    leaveRoom(roomData.roomId, hostMember.genID)
-
-    // Clear session storage
-    sessionStorage.removeItem('roomData')
-    sessionStorage.removeItem('roomDataTimestamp')
-
-    // Navigate back to home
-    toast.success('Left room successfully')
-    navigate('/')
-  }, [roomData, hostMember, isSharing, stopScreenShare, leaveRoom, navigate])
 
   const handleSpin = () => {
     if (isSpinning || items.filter(i => i.visible).length === 0) return
@@ -333,6 +390,9 @@ export default function HostPage() {
       }
       setResult(selectedItem.text)
 
+      // Add to picked members list
+      setPickedMembers(prev => [...prev, { name: selectedItem.text, timestamp: new Date() }])
+
       // Emit spin result to all viewers in the room
       if (roomData?.roomId) {
         emitSpinResult(roomData.roomId, selectedItem.text)
@@ -388,7 +448,11 @@ export default function HostPage() {
               <button
                 onClick={(e) => {
                   e.stopPropagation()
-                  isSharing ? stopScreenShare() : startScreenShare()
+                  if (isSharing) {
+                    stopScreenShare()
+                  } else {
+                    startScreenShare()
+                  }
                 }}
                 className={`absolute top-0 right-0 z-10 p-2 sm:p-3 rounded-full shadow-lg transition-all hover:scale-105 ${isSharing
                   ? 'bg-red-500 hover:bg-red-600 text-white'
@@ -427,12 +491,12 @@ export default function HostPage() {
             <div className="w-full mt-6 sm:mt-8">
               <ChatView
                 roomId={roomData?.roomId || null}
-                currentUserId={hostMember?.genID || ''}
+                currentUserId={hostMember?.name || ''}
                 currentUserName={hostMember?.name || ''}
                 messages={messages}
                 onSendMessage={(message) => {
                   if (roomData?.roomId && hostMember) {
-                    sendChatMessage(roomData.roomId, hostMember.genID, hostMember.name, message)
+                    sendChatMessage(roomData.roomId, hostMember.name, hostMember.name, message)
                   }
                 }}
                 onReactToMessage={(messageId, emoji) => {
@@ -462,7 +526,6 @@ export default function HostPage() {
                   <div className="bg-accent rounded-lg p-3 border">
                     <p className="text-muted-foreground text-xs mb-1">Host</p>
                     <p className="font-bold">{hostMember.name}</p>
-                    <p className="text-muted-foreground text-xs">ID: {hostMember.genID}</p>
                   </div>
                 )}
 
@@ -486,12 +549,11 @@ export default function HostPage() {
                     {roomData?.membersWithDetails && roomData.membersWithDetails.length > 0 ? (
                       roomData.membersWithDetails.map((member) => (
                         <div
-                          key={member.genID}
+                          key={member.name}
                           className="flex items-center justify-between bg-accent/50 rounded p-2"
                         >
                           <div>
                             <p className="font-semibold text-sm">{member.name}</p>
-                            <p className="text-muted-foreground text-xs">ID: {member.genID}</p>
                           </div>
                           {member.isHost && (
                             <span className="px-2 py-1 bg-yellow-500 text-white text-xs font-bold rounded">
@@ -751,6 +813,86 @@ export default function HostPage() {
               </div>
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Screen Share Preview Sidebar */}
+      <AnimatePresence>
+        {isSharing && (
+          <>
+            {/* Toggle Button - Fixed position on the right side */}
+            <motion.button
+              initial={{ opacity: 0, right: -100 }}
+              animate={{
+                opacity: 1,
+                right: showPreviewSidebar ? 320 : 0,
+                backgroundColor: showPreviewSidebar
+                  ? 'var(--primary)'
+                  : 'rgb(59, 130, 246)'
+              }}
+              exit={{ opacity: 0, right: -100 }}
+              transition={{
+                type: 'spring',
+                damping: 30,
+                stiffness: 300,
+                backgroundColor: { duration: 0.2 }
+              }}
+              onClick={() => setShowPreviewSidebar(!showPreviewSidebar)}
+              className="fixed top-1/2 -translate-y-1/2 z-40 p-3 rounded-l-lg shadow-lg text-white hover:brightness-110"
+              title={showPreviewSidebar ? 'Hide Preview' : 'Show Preview'}
+            >
+              {showPreviewSidebar ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            </motion.button>
+
+            {/* Sidebar with Preview */}
+            <AnimatePresence>
+              {showPreviewSidebar && (
+                <motion.div
+                  initial={{ x: '100%' }}
+                  animate={{ x: 0 }}
+                  exit={{ x: '100%' }}
+                  transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+                  className="fixed top-0 right-0 h-screen w-80 bg-card border-l shadow-2xl z-30 flex flex-col"
+                >
+                  {/* Header */}
+                  <div className="flex items-center justify-between p-4 border-b bg-accent/50">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                      <h3 className="font-semibold text-sm">Screen Share Preview</h3>
+                    </div>
+                    <button
+                      onClick={() => setShowPreviewSidebar(false)}
+                      className="p-1 hover:bg-accent rounded transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Video Preview */}
+                  <div className="flex-1 p-4 overflow-auto">
+                    <div className="bg-black rounded-lg overflow-hidden shadow-lg">
+                      <video
+                        ref={previewVideoRef}
+                        autoPlay
+                        muted
+                        playsInline
+                        className="w-full h-auto"
+                      />
+                    </div>
+
+                    {/* Info */}
+                    <div className="mt-4 space-y-2 text-xs text-muted-foreground">
+                      <p className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-green-500" />
+                        Viewers can see this screen
+                      </p>
+                      <p>This is what your audience sees in real-time</p>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </>
         )}
       </AnimatePresence>
 

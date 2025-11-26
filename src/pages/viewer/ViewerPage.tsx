@@ -141,20 +141,23 @@ export default function ViewerPage() {
     const connectedRoomID = roomData?.roomId;
     useEffect(() => {
         if (isConnected && roomId && viewerMember && !hasJoined) {
-            console.log('[ViewerPage] Auto-joining room:', roomId, 'with member:', viewerMember.genID, viewerMember.name)
-            joinRoom(roomId, viewerMember.genID, viewerMember.name)
+            console.log('[ViewerPage] Auto-joining room:', roomId, 'with member:', viewerMember.name, viewerMember.name)
+            joinRoom(roomId, viewerMember.name, viewerMember.name)
             setHasJoined(true)
         }
     }, [isConnected, roomId, viewerMember, hasJoined, joinRoom])
 
-    // Listen for spin results
+    // Listen for spin results - only show popup if this viewer was picked
     useEffect(() => {
-        if (socket) {
+        if (socket && viewerMember) {
             onSpinResult((result: string) => {
-                setSpinResult(result)
+                // Only show the result popup if this viewer was picked
+                if (result === viewerMember.name) {
+                    setSpinResult(result)
+                }
             })
         }
-    }, [socket, onSpinResult]) // Added onSpinResult to dependency array for correctness
+    }, [socket, onSpinResult, viewerMember]) // Added viewerMember to dependency array
 
     // Listen for host reconnection (when host reloads page)
     useEffect(() => {
@@ -183,7 +186,7 @@ export default function ViewerPage() {
         console.log("🔍 ViewerPage useEffect triggered", {
             hasRoomId: !!roomData?.roomId,
             roomId: roomData?.roomId,
-            viewerMember: viewerMember?.genID
+            viewerMember: viewerMember?.name
         })
 
         if (roomData?.roomId) {
@@ -202,7 +205,7 @@ export default function ViewerPage() {
                             }
 
                             // Leave the room via socket
-                            leaveRoom(roomId, viewerMember.genID)
+                            leaveRoom(roomId, viewerMember.name)
 
                             // Clear session storage
                             sessionStorage.removeItem('roomData')
@@ -388,14 +391,13 @@ export default function ViewerPage() {
                                 {roomData?.members && roomData.members.length > 0 ? (
                                     roomData.membersWithDetails?.map((member) => (
                                         <div
-                                            key={member.genID}
+                                            key={member.name}
                                             className="flex items-center gap-3 bg-accent rounded-lg p-3"
                                         >
                                             <div className="flex-1">
                                                 <p className="font-semibold text-sm truncate">
-                                                    {member.genID === roomData.hostId ? `👑 ${member.name}` : member.name}
+                                                    {member.name === roomData.hostId ? `👑 ${member.name}` : member.name}
                                                 </p>
-                                                <p className="text-muted-foreground text-xs truncate">ID: {member.genID}</p>
                                             </div>
                                         </div>
                                     ))
@@ -406,23 +408,25 @@ export default function ViewerPage() {
                         </div>
 
                         {/* Chat & Comments */}
-                        <ChatView
-                            roomId={roomId}
-                            currentUserId={viewerMember?.genID || ''}
-                            currentUserName={viewerMember?.name || ''}
-                            messages={messages}
-                            onSendMessage={(message) => {
-                                if (roomId) {
-                                    sendChatMessage(roomId, viewerMember?.genID || '', viewerMember?.name || '', message)
-                                }
-                            }}
-                            onReactToMessage={(messageId, emoji) => {
-                                if (roomId) {
-                                    reactToMessage(roomId, messageId, viewerMember?.genID || '', emoji)
-                                }
-                            }}
-                            isConnected={isConnected}
-                        />
+                        <div className="flex-1 min-h-[400px]">
+                            <ChatView
+                                roomId={roomId}
+                                currentUserId={viewerMember?.name || ''}
+                                currentUserName={viewerMember?.name || ''}
+                                messages={messages}
+                                onSendMessage={(message) => {
+                                    if (roomId) {
+                                        sendChatMessage(roomId, viewerMember?.name || '', viewerMember?.name || '', message)
+                                    }
+                                }}
+                                onReactToMessage={(messageId, emoji) => {
+                                    if (roomId) {
+                                        reactToMessage(roomId, messageId, viewerMember?.name || '', emoji)
+                                    }
+                                }}
+                                isConnected={isConnected}
+                            />
+                        </div>
                     </div>
                 </div>
             </div>

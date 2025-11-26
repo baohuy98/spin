@@ -11,6 +11,7 @@ interface RoomDataEvent extends Event {
     roomId?: string
     getRoomLink?: () => string
     onLeave?: () => void
+    pickedMembers?: Array<{ name: string; timestamp: Date }>
   }
 }
 
@@ -20,17 +21,37 @@ function AppContent() {
   const [roomData, setRoomData] = useState<{
     roomId?: string
     getRoomLink?: () => string
+    onLeave?: () => void
+    pickedMembers?: Array<{ name: string; timestamp: Date }>
   }>(() => {
     // Only restore if we're on the host page
     if (window.location.pathname === '/host') {
       const savedRoomData = sessionStorage.getItem('roomData')
+      const savedPickedMembers = sessionStorage.getItem('pickedMembers')
+
       if (savedRoomData) {
         try {
           const parsed = JSON.parse(savedRoomData)
           if (parsed.roomId) {
+            // Also restore picked members
+            let pickedMembers: Array<{ name: string; timestamp: Date }> = []
+            if (savedPickedMembers) {
+              try {
+                const parsedPickedMembers = JSON.parse(savedPickedMembers)
+                // Convert timestamp strings back to Date objects
+                pickedMembers = parsedPickedMembers.map((member: { name: string; timestamp: string }) => ({
+                  name: member.name,
+                  timestamp: new Date(member.timestamp)
+                }))
+              } catch {
+                // Invalid picked members data, ignore
+              }
+            }
+
             return {
               roomId: parsed.roomId,
-              getRoomLink: () => `${window.location.origin}/viewer?roomId=${parsed.roomId}`
+              getRoomLink: () => `${window.location.origin}/viewer?roomId=${parsed.roomId}`,
+              pickedMembers
             }
           }
         } catch {
@@ -48,6 +69,7 @@ function AppContent() {
     const handleRoomDataUpdate = (event: Event) => {
       const customEvent = event as RoomDataEvent
       console.log("🚀 App received roomDataUpdate event:", customEvent.detail)
+      console.log("🚀 App pickedMembers count:", customEvent.detail.pickedMembers?.length || 0)
       setRoomData(customEvent.detail)
     }
 
@@ -67,6 +89,7 @@ function AppContent() {
         roomId={roomData.roomId}
         getRoomLink={roomData.getRoomLink}
         onLeave={roomData.onLeave}
+        pickedMembers={roomData.pickedMembers}
       />
       <Routes>
         <Route path="/" element={<Home />} />
