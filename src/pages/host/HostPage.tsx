@@ -7,6 +7,7 @@ import { useTheme } from '../../components/ThemeProvider'
 import LivestreamReactions from '../../components/LivestreamReactions'
 import { SantaImage } from '../../components/SantaImage'
 import { Snowfall } from '../../components/Snowfall'
+import { LunarNewYearEffect } from '../../components/LunarNewYearEffect'
 import { useViewTheme } from '../../components/ViewThemeProvider'
 import SpinWheel from '../../components/SpinWheel'
 import { useSocket } from '../../hooks/useSocket'
@@ -238,6 +239,8 @@ export default function HostPage() {
   // Emit room data to App component for Header
   useEffect(() => {
     console.log('[HostPage] useEffect triggered - roomId:', roomData?.roomId, 'pickedMembers:', pickedMembers.length)
+
+    // If we have roomData, emit it
     if (roomData?.roomId) {
       console.log('[HostPage] Emitting roomDataUpdate with pickedMembers:', pickedMembers.length, pickedMembers)
       const event = new CustomEvent('roomDataUpdate', {
@@ -253,8 +256,32 @@ export default function HostPage() {
         }
       })
       window.dispatchEvent(event)
-    } else {
-      console.log('[HostPage] Not emitting - no roomId yet')
+    }
+    // If we don't have roomData yet but we are on HostPage (which we are), 
+    // we should still try to emit isHost: true if we can recover the roomId from storage
+    // This handles the case where roomData is still loading but we want the header to show host controls
+    else {
+      const savedRoomData = sessionStorage.getItem('roomData')
+      if (savedRoomData) {
+        try {
+          const parsed = JSON.parse(savedRoomData)
+          if (parsed.roomId) {
+            console.log('[HostPage] Emitting initial roomDataUpdate from storage')
+            const event = new CustomEvent('roomDataUpdate', {
+              detail: {
+                roomId: parsed.roomId,
+                getRoomLink: () => `${window.location.origin}/viewer?roomId=${parsed.roomId}`,
+                onLeave: handleLeaveRoom,
+                pickedMembers: pickedMembers,
+                isHost: true
+              }
+            })
+            window.dispatchEvent(event)
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
     }
   }, [roomData?.roomId, pickedMembers, handleLeaveRoom])
 
@@ -463,13 +490,23 @@ export default function HostPage() {
   return (
     <div
       className="min-h-screen bg-background pt-16 sm:pt-20 pb-6 sm:pb-10"
-      style={viewTheme === 'christmas' && theme === 'light' ? { backgroundColor: 'lightcoral' } : {}}
+      style={
+        viewTheme === 'christmas' && theme === 'light' ? { backgroundColor: 'lightcoral' } :
+          viewTheme === 'lunar-new-year' && theme === 'light' ? { backgroundColor: '#ffebee' } : {}
+      }
     >
       {/* Christmas decorations */}
       {viewTheme === 'christmas' && (
         <>
           <Snowfall />
           <SantaImage />
+        </>
+      )}
+
+      {/* Lunar New Year decorations */}
+      {viewTheme === 'lunar-new-year' && (
+        <>
+          <LunarNewYearEffect />
         </>
       )}
 

@@ -8,6 +8,7 @@ import ChatView from '../../components/ChatView'
 import LivestreamReactions from '../../components/LivestreamReactions'
 import { SantaImage } from '../../components/SantaImage'
 import { Snowfall } from '../../components/Snowfall'
+import { LunarNewYearEffect } from '../../components/LunarNewYearEffect'
 import { useViewTheme } from '../../components/ViewThemeProvider'
 import { Alert, AlertDescription } from '../../components/ui/alert'
 import { useSocket } from '../../hooks/useSocket'
@@ -298,13 +299,23 @@ export default function ViewerPage() {
     return (
         <div
             className="min-h-screen"
-            style={viewTheme === 'christmas' && theme === 'light' ? { backgroundColor: 'lightcoral' } : {}}
+            style={
+                viewTheme === 'christmas' && theme === 'light' ? { backgroundColor: 'lightcoral' } :
+                    viewTheme === 'lunar-new-year' && theme === 'light' ? { backgroundColor: '#ffebee' } : {}
+            }
         >
             {/* Christmas decorations */}
             {viewTheme === 'christmas' && (
                 <>
                     <Snowfall />
                     <SantaImage />
+                </>
+            )}
+
+            {/* Lunar New Year decorations */}
+            {viewTheme === 'lunar-new-year' && (
+                <>
+                    <LunarNewYearEffect />
                 </>
             )}
 

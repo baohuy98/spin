@@ -53,7 +53,8 @@ function AppContent() {
             return {
               roomId: parsed.roomId,
               getRoomLink: () => `${window.location.origin}/viewer?roomId=${parsed.roomId}`,
-              pickedMembers
+              pickedMembers,
+              isHost: true
             }
           }
         } catch {
