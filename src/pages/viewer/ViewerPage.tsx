@@ -5,6 +5,8 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import ChatView from '../../components/ChatView'
 import LivestreamReactions from '../../components/LivestreamReactions'
+import { Snowfall } from '../../components/Snowfall'
+import { useViewTheme } from '../../components/ViewThemeProvider'
 import { Alert, AlertDescription } from '../../components/ui/alert'
 import { useSocket } from '../../hooks/useSocket'
 import { useWebRTC } from '../../hooks/useWebRTC'
@@ -14,6 +16,7 @@ export default function ViewerPage() {
     const navigate = useNavigate()
     const location = useLocation()
     const [searchParams] = useSearchParams()
+    const { viewTheme } = useViewTheme()
 
     // Get member from location state (logged-in user data from Home.tsx)
     const preSelectedMember = (location.state as { member?: Member })?.member
@@ -277,6 +280,9 @@ export default function ViewerPage() {
     // Main viewer interface
     return (
         <>
+            {/* Snowfall effect for Christmas theme */}
+            {viewTheme === 'christmas' && <Snowfall />}
+
             <div className="container mx-auto px-4 pt-10 h-[calc(100vh-80px)]">
                 <div className="flex flex-col lg:flex-row gap-6 h-full">
                     {/* Left Panel - Screen Share */}
@@ -362,7 +368,7 @@ export default function ViewerPage() {
                                         <LivestreamReactions
                                             onSendReaction={(emoji) => {
                                                 if (roomId && viewerMember) {
-                                                    sendLivestreamReaction(roomId, viewerMember.genID, viewerMember.name, emoji)
+                                                    sendLivestreamReaction(roomId, viewerMember.name, viewerMember.name, emoji)
                                                 }
                                             }}
                                             incomingReactions={livestreamReactions}
