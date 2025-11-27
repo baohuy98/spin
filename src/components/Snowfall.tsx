@@ -12,7 +12,7 @@ interface Snowflake {
 export function Snowfall() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const snowflakesRef = useRef<Snowflake[]>([]);
-  const animationFrameRef = useRef<number>();
+  const animationFrameRef = useRef<number>(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
