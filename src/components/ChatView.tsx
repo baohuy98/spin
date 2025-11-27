@@ -177,7 +177,7 @@ export default function ChatView({
               maxLength={500}
               rows={1}
               onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
+                if (e.key === 'Enter' && !e.shiftKey && e.keyCode !== 229) {
                   e.preventDefault()
                   handleSendMessage(e as React.FormEvent)
                 }
