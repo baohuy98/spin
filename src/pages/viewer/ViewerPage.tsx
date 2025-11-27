@@ -10,8 +10,8 @@ import { Snowfall } from '../../components/Snowfall'
 import { useTheme } from '../../components/ThemeProvider'
 import { useViewTheme } from '../../components/ViewThemeProvider'
 import { Alert, AlertDescription } from '../../components/ui/alert'
-import { useSocket } from '../../hooks/useSocket'
 import { useMediasoupWebRTC } from '../../hooks/useMediasoupWebRTC'
+import { useSocket } from '../../hooks/useSocket'
 import type { Member } from '../../utils/interface/MemberInterface'
 
 import {
@@ -384,7 +384,7 @@ export default function ViewerPage() {
                 </>
             )}
 
-            <div className="container mx-auto px-4 pt-10">
+            <div className="container mx-auto px-4 py-10">
                 <div className="flex flex-col lg:flex-row gap-6">
                     {/* Left Panel - Screen Share */}
                     <div className="flex-1 flex flex-col gap-4">
@@ -447,7 +447,7 @@ export default function ViewerPage() {
 
                             <div
                                 ref={videoContainerRef}
-                                className="relative rounded-lg overflow-hidden bg-black group lg:h-[680px] md:h-[400px] h-[300px]"
+                                className="relative rounded-lg overflow-hidden bg-black group lg:h-[650px] md:h-[400px] h-[300px]"
 
                             >
                                 {remoteStream ? (
