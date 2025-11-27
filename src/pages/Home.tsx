@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { toast } from 'sonner';
 import { useTheme } from '../components/ThemeProvider';
 import { SantaImage } from '../components/SantaImage';
 import { Snowfall } from '../components/Snowfall';
@@ -13,6 +14,21 @@ export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [pendingRoomId, setPendingRoomId] = useState<string | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Check for error message from viewer redirect (duplicate name)
+  useEffect(() => {
+    const state = location.state as { error?: string; roomId?: string } | null;
+    if (state?.error) {
+      toast.error(state.error, { duration: 5000 });
+      if (state.roomId) {
+        setRoomID(state.roomId); // Pre-fill the room ID for retry
+        setPendingRoomId(state.roomId);
+      }
+      // Clear the state to prevent showing error again on refresh
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location, navigate]);
 
   // Check for pending room ID (from viewer redirect)
   useEffect(() => {

@@ -12,7 +12,7 @@ import { useViewTheme } from '../../components/ViewThemeProvider'
 import SpinWheel from '../../components/SpinWheel'
 import { useSocket } from '../../hooks/useSocket'
 import { useSpinSound } from '../../hooks/useSpinSound'
-import { useWebRTC } from '../../hooks/useWebRTC'
+import { useMediasoupWebRTC } from '../../hooks/useMediasoupWebRTC'
 import type { Member } from '../../utils/interface/MemberInterface'
 import { Volume2, VolumeX, Plus, Trash2, MonitorUp, Eye, EyeOff, X } from 'lucide-react'
 
@@ -118,7 +118,7 @@ export default function HostPage() {
   }
 
   // WebRTC for screen sharing
-  const { isSharing, startScreenShare, stopScreenShare, localStream } = useWebRTC({
+  const { isSharing, startScreenShare, stopScreenShare, localStream } = useMediasoupWebRTC({
     socket,
     roomId: roomData?.roomId || null,
     isHost: true,
