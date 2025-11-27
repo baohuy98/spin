@@ -11,7 +11,7 @@ import { useTheme } from '../../components/ThemeProvider'
 import { useViewTheme } from '../../components/ViewThemeProvider'
 import { Alert, AlertDescription } from '../../components/ui/alert'
 import { useSocket } from '../../hooks/useSocket'
-import { useWebRTC } from '../../hooks/useWebRTC'
+import { useMediasoupWebRTC } from '../../hooks/useMediasoupWebRTC'
 import type { Member } from '../../utils/interface/MemberInterface'
 
 import {
@@ -110,7 +110,7 @@ export default function ViewerPage() {
     const videoContainerRef = useRef<HTMLDivElement>(null)
 
     // Socket.io for room management
-    const { socket, isConnected, roomData, error, joinRoom, leaveRoom, onSpinResult, isHostDisconnected, messages, sendChatMessage, reactToMessage, livestreamReactions, sendLivestreamReaction } = useSocket()
+    const { socket, isConnected, roomData, error, joinRoom, leaveRoom, onSpinResult, isRoomDeleted, isHostDisconnected, messages, sendChatMessage, reactToMessage, livestreamReactions, sendLivestreamReaction } = useSocket()
     console.log('socket in view page', socket)
     // Handle host disconnection/reconnection toasts
     useEffect(() => {
@@ -130,7 +130,7 @@ export default function ViewerPage() {
     }, [isHostDisconnected])
 
     // WebRTC for receiving screen share
-    const { remoteStream, connectionState } = useWebRTC({
+    const { remoteStream, connectionState } = useMediasoupWebRTC({
         socket,
         roomId: roomData?.roomId || null,
         isHost: false,
@@ -200,6 +200,23 @@ export default function ViewerPage() {
             }
         }
     }, [socket, setViewTheme])
+
+    // Handle room deletion - redirect to homepage
+    useEffect(() => {
+        if (isRoomDeleted) {
+            console.log('[ViewerPage] Room deleted, redirecting to home page')
+            toast.error('The host has left and the room has been deleted. Redirecting to home...', {
+                duration: 3000
+            })
+            // Clear all session storage
+            sessionStorage.removeItem('roomData')
+            sessionStorage.removeItem('roomDataTimestamp')
+            sessionStorage.removeItem('lastJoinedSocketId')
+            sessionStorage.removeItem('viewerMember')
+            // Redirect to home after a short delay
+            setTimeout(() => navigate('/'), 2000)
+        }
+    }, [isRoomDeleted, navigate])
 
     // Emit room data to App component for Header
     useEffect(() => {
@@ -314,15 +331,34 @@ export default function ViewerPage() {
 
     // Handle errors
     useEffect(() => {
-        if (error && (error.includes('not found') || error.includes('does not exist'))) {
-            toast.error('Room not found. Please check the Room ID.')
-            sessionStorage.removeItem('roomData')
-            sessionStorage.removeItem('viewerMemberId')
-
-            setHasJoined(false)
-            setRoomId('')
+        if (error) {
+            if (error.includes('not found') || error.includes('does not exist')) {
+                toast.error('Room not found. Please check the Room ID.')
+                sessionStorage.removeItem('roomData')
+                sessionStorage.removeItem('viewerMemberId')
+                setHasJoined(false)
+                setRoomId('')
+            } else if (error.includes('already taken')) {
+                // Handle duplicate name error
+                toast.error(error, { duration: 5000 })
+                console.log('[ViewerPage] Duplicate name detected, redirecting to home')
+                // Clear session data
+                sessionStorage.removeItem('roomData')
+                sessionStorage.removeItem('roomDataTimestamp')
+                sessionStorage.removeItem('lastJoinedSocketId')
+                sessionStorage.removeItem('viewerMember')
+                // Redirect to home page after showing error
+                setTimeout(() => {
+                    navigate('/', {
+                        state: {
+                            error: 'Name already taken. Please choose a different name.',
+                            roomId: roomId // Pass roomId so user can try again with different name
+                        }
+                    })
+                }, 2000)
+            }
         }
-    }, [error])
+    }, [error, navigate, roomId])
 
     // Main viewer interface
     return (

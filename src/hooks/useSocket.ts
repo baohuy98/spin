@@ -79,6 +79,7 @@ export function useSocket(options: UseSocketOptions = {}) {
   })
   const [error, setError] = useState<string | null>(null)
   const [isRoomClosed, setIsRoomClosed] = useState(false)
+  const [isRoomDeleted, setIsRoomDeleted] = useState(false)
   const [isHostDisconnected, setIsHostDisconnected] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [livestreamReactions, setLivestreamReactions] = useState<LivestreamReaction[]>([])
@@ -191,6 +192,15 @@ export function useSocket(options: UseSocketOptions = {}) {
         if (data.message.includes('another tab') || data.message.includes('another window')) {
           toast.error(data.message, { duration: 5000 })
         }
+      })
+
+      newSocket.on('room-deleted', (data: { message: string }) => {
+        console.log('[Socket] Room deleted:', data.message)
+        setIsRoomDeleted(true)
+        sessionStorage.removeItem('roomData')
+        sessionStorage.removeItem('roomDataTimestamp')
+        sessionStorage.removeItem('lastJoinedSocketId')
+        toast.error(data.message, { duration: 5000 })
       })
 
       // Note: Auto re-join is handled by ViewerPage/HostPage components
@@ -339,7 +349,6 @@ export function useSocket(options: UseSocketOptions = {}) {
 
   const updateTheme = (roomId: string, theme: string) => {
     if (socketRef.current) {
-      console.log('[useSocket] Emitting update-theme event for room:', roomId, 'theme:', theme)
       socketRef.current.emit('update-theme', { roomId, theme })
     }
   }
@@ -356,6 +365,7 @@ export function useSocket(options: UseSocketOptions = {}) {
     emitSpinResult,
     onSpinResult,
     isRoomClosed,
+    isRoomDeleted,
     isHostDisconnected,
     messages,
     sendChatMessage,
