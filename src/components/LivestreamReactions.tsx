@@ -37,7 +37,7 @@ export default function LivestreamReactions({ onSendReaction, incomingReactions 
             </div>
 
             {/* Reaction Buttons - Bottom Right */}
-            <div className="absolute bottom-6 right-6 flex flex-row gap-2 pointer-events-auto opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="absolute bottom-4 left-4 flex flex-row gap-2 pointer-events-auto opacity-0 group-hover:opacity-100 transition-opacity">
                 {REACTION_EMOJIS.map(emoji => (
                     <button
                         key={emoji}
