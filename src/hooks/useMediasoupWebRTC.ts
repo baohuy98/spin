@@ -44,26 +44,28 @@ export function useMediasoupWebRTC({
 
     const initDevice = async () => {
       try {
+        console.log('[FE-MEDIASOUP] 🎛️  Initializing mediasoup device for room:', roomId, 'isHost:', isHost)
         // Create device
         const device = new Device()
         deviceRef.current = device
 
         // Get router RTP capabilities from server
+        console.log('[FE-MEDIASOUP] 📤 Requesting router RTP capabilities for room:', roomId)
         socket.emit('getRouterRtpCapabilities', { roomId })
 
         socket.once('routerRtpCapabilities', async (data: { rtpCapabilities: RtpCapabilities }) => {
-          console.log('[Mediasoup] Received router RTP capabilities')
+          console.log('[FE-MEDIASOUP] ✅ Received router RTP capabilities, loading device...')
           await device.load({ routerRtpCapabilities: data.rtpCapabilities })
-          console.log('[Mediasoup] Device loaded')
+          console.log('[FE-MEDIASOUP] ✅ Device loaded successfully', data.rtpCapabilities)
 
           // If viewer, request existing producers after device is ready
           if (!isHost) {
-            console.log('[Mediasoup] Requesting existing producers')
+            console.log('[FE-MEDIASOUP] 📤 Viewer requesting existing producers for room:', roomId)
             socket.emit('getProducers', { roomId })
           }
         })
       } catch (err) {
-        console.error('[Mediasoup] Failed to initialize device:', err)
+        console.error('[FE-MEDIASOUP] ❌ Failed to initialize device:', err)
         setError('Failed to initialize media device')
       }
     }
@@ -74,30 +76,33 @@ export function useMediasoupWebRTC({
   // Helper functions must be defined before useEffect
   const produceMedia = useCallback(async (stream: MediaStream) => {
     if (!sendTransportRef.current) {
-      console.error('[Mediasoup] Send transport not ready')
+      console.error('[FE-MEDIASOUP] ❌ Send transport not ready')
       return
     }
 
     try {
+      console.log('[FE-MEDIASOUP] 🎬 Starting media production...')
       const videoTrack = stream.getVideoTracks()[0]
       if (videoTrack) {
+        console.log('[FE-MEDIASOUP] 📹 Producing video track...')
         const videoProducer = await sendTransportRef.current.produce({
           track: videoTrack,
         })
         producersRef.current.set('video', videoProducer)
-        console.log('[Mediasoup] Video producer created:', videoProducer.id)
+        console.log('[FE-MEDIASOUP] ✅ Video producer created:', videoProducer.id)
       }
 
       const audioTrack = stream.getAudioTracks()[0]
       if (audioTrack) {
+        console.log('[FE-MEDIASOUP] 🎤 Producing audio track...')
         const audioProducer = await sendTransportRef.current.produce({
           track: audioTrack,
         })
         producersRef.current.set('audio', audioProducer)
-        console.log('[Mediasoup] Audio producer created:', audioProducer.id)
+        console.log('[FE-MEDIASOUP] ✅ Audio producer created:', audioProducer.id)
       }
     } catch (err) {
-      console.error('[Mediasoup] Failed to produce media:', err)
+      console.error('[FE-MEDIASOUP] ❌ Failed to produce media:', err)
       setError('Failed to share media')
     }
   }, [])
@@ -105,12 +110,12 @@ export function useMediasoupWebRTC({
   const consumeMedia = useCallback(async (producerId: string) => {
     // Check if already consuming this producer
     if (consumingProducersRef.current.has(producerId)) {
-      console.log(`[Mediasoup] Already consuming producer: ${producerId}`)
+      console.log(`[FE-MEDIASOUP] ℹ️  Already consuming producer: ${producerId}`)
       return
     }
 
     if (!recvTransportRef.current || !deviceRef.current || !recvTransportIdRef.current) {
-      console.error('[Mediasoup] Recv transport or device not ready', {
+      console.error('[FE-MEDIASOUP] ❌ Recv transport or device not ready', {
         hasRecvTransport: !!recvTransportRef.current,
         hasDevice: !!deviceRef.current,
         hasTransportId: !!recvTransportIdRef.current,
@@ -124,7 +129,7 @@ export function useMediasoupWebRTC({
     try {
       const rtpCapabilities = deviceRef.current.rtpCapabilities
 
-      console.log('[Mediasoup] Requesting consume:', {
+      console.log('[FE-MEDIASOUP] 📤 Requesting consume:', {
         roomId,
         transportId: recvTransportIdRef.current,
         producerId,
@@ -137,7 +142,7 @@ export function useMediasoupWebRTC({
 
           // Clean up error handler
           socket?.off('error', handleError)
-
+          console.log('data in consumed handler', data)
           const consumer = await recvTransportRef.current!.consume({
             id: data.id,
             producerId: data.producerId,
