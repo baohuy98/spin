@@ -17,6 +17,7 @@ interface RoomData {
   hostId: string
   members: string[]
   membersWithDetails?: MemberDetail[]
+  theme?: string
 }
 
 interface SocketError {
@@ -124,7 +125,7 @@ export function useSocket(options: UseSocketOptions = {}) {
           roomId: data.roomId,
           hostId: data.hostId,
           memberCount: data.members.length,
-          theme: data.theme
+          theme: data?.theme
         })
         setRoomData(data)
         sessionStorage.setItem('roomData', JSON.stringify(data))
