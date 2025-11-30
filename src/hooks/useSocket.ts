@@ -104,22 +104,28 @@ export function useSocket(options: UseSocketOptions = {}) {
 
       newSocket.on('connect', () => {
         setIsConnected(true)
-        console.log('Socket connected:', newSocket.id)
+        console.log('[FE-SOCKET] ✅ Socket connected:', newSocket.id)
       })
 
       newSocket.on('disconnect', (reason) => {
         setIsConnected(false)
-        console.log('Socket disconnected:', reason)
+        console.log('[FE-SOCKET] ⚠️  Socket disconnected:', reason)
 
         // If disconnected by server due to duplicate connection, show message
         if (reason === 'io server disconnect') {
           // Server forcefully disconnected - don't auto-reconnect
           newSocket.io.opts.autoConnect = false
+          console.log('[FE-SOCKET] 🔌 Server forced disconnect, disabling auto-reconnect')
         }
       })
 
       newSocket.on('room-created', (data: RoomData) => {
-        console.log('[useSocket] Room created:', data)
+        console.log('[FE-SOCKET] 📝 Room created event received:', {
+          roomId: data.roomId,
+          hostId: data.hostId,
+          memberCount: data.members.length,
+          theme: data.theme
+        })
         setRoomData(data)
         sessionStorage.setItem('roomData', JSON.stringify(data))
         sessionStorage.setItem('roomDataTimestamp', Date.now().toString())
@@ -127,7 +133,12 @@ export function useSocket(options: UseSocketOptions = {}) {
       })
 
       newSocket.on('room-joined', (data: RoomData & { memberId?: string }) => {
-        console.log('[useSocket] Successfully joined room:', data)
+        console.log('[FE-SOCKET] ✅ Room joined event received:', {
+          roomId: data.roomId,
+          hostId: data.hostId,
+          memberCount: data.members.length,
+          memberId: data.memberId
+        })
         setRoomData(data)
         sessionStorage.setItem('roomData', JSON.stringify(data))
         setIsRoomClosed(false) // Reset room closed state
@@ -137,7 +148,11 @@ export function useSocket(options: UseSocketOptions = {}) {
       })
 
       newSocket.on('member-joined', (data: { memberId: string; memberName: string; members: string[]; membersWithDetails?: MemberDetail[] }) => {
-        console.log('Member joined:', data)
+        console.log('[FE-SOCKET] 👥 Member joined event:', {
+          memberId: data.memberId,
+          memberName: data.memberName,
+          totalMembers: data.members.length
+        })
         setRoomData(prev => {
           if (prev) {
             // Check if host rejoined
@@ -159,17 +174,20 @@ export function useSocket(options: UseSocketOptions = {}) {
       })
 
       newSocket.on('member-left', (data: { memberId: string; members: string[]; membersWithDetails?: MemberDetail[] }) => {
-        console.log('Member left:', data)
+        console.log('[FE-SOCKET] 👋 Member left event:', {
+          memberId: data.memberId,
+          remainingMembers: data.members.length
+        })
         setRoomData(prev => {
           if (prev) {
             // Check if the host is the one who left
             if (prev.hostId === data.memberId) {
-              console.log('Host left the room. Marking as disconnected.')
+              console.log('[FE-SOCKET] ⚠️  Host left the room. Marking as disconnected.')
               setIsHostDisconnected(true)
               // Do NOT close the room immediately, allow for reconnection
-              // setIsRoomClosed(true) 
+              // setIsRoomClosed(true)
               // sessionStorage.removeItem('roomData')
-              // return null 
+              // return null
             }
             const updatedData = {
               ...prev,
@@ -184,7 +202,7 @@ export function useSocket(options: UseSocketOptions = {}) {
       })
 
       newSocket.on('error', (data: SocketError) => {
-        console.error('Socket error:', data)
+        console.error('[FE-SOCKET] ❌ Socket error:', data.message)
         setError(data.message)
         pendingJoinRef.current = null // Clear pending join on error
 
@@ -195,7 +213,7 @@ export function useSocket(options: UseSocketOptions = {}) {
       })
 
       newSocket.on('room-deleted', (data: { message: string }) => {
-        console.log('[Socket] Room deleted:', data.message)
+        console.log('[FE-SOCKET] 🗑️  Room deleted event:', data.message)
         setIsRoomDeleted(true)
         sessionStorage.removeItem('roomData')
         sessionStorage.removeItem('roomDataTimestamp')
@@ -242,10 +260,10 @@ export function useSocket(options: UseSocketOptions = {}) {
 
   const createRoom = (hostId: string, name: string) => {
     if (socketRef.current) {
-      console.log('[useSocket] Emitting create-room event for host:', hostId, name)
+      console.log('[FE-SOCKET] 📤 Emitting create-room event:', { hostId, name, socket: socketRef.current.id })
       socketRef.current.emit('create-room', { hostId, name })
     } else {
-      console.error('[useSocket] Cannot create room - socket not connected')
+      console.error('[FE-SOCKET] ❌ Cannot create room - socket not connected')
     }
   }
 
@@ -265,12 +283,13 @@ export function useSocket(options: UseSocketOptions = {}) {
 
       socketRef.current.emit('join-room', { roomId, memberId, name })
     } else {
-      console.error('[useSocket] Cannot join room - socket not connected')
+      console.error('[FE-SOCKET] ❌ Cannot join room - socket not connected')
     }
   }
 
   const leaveRoom = (roomId: string, memberId: string) => {
     if (socketRef.current) {
+      console.log('[FE-SOCKET] 📤 Emitting leave-room event:', { roomId, memberId, socket: socketRef.current.id })
       socketRef.current.emit('leave-room', { roomId, memberId })
       pendingJoinRef.current = null
       sessionStorage.removeItem('roomData')
