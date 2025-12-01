@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowUpIcon, MessageCircle, Radio } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import christmasBackground from '../assets/christmas-santa-claus-png.png'
 import EmojiPickerPopover from './EmojiPickerPopover'
 import MessageReactionPicker from './MessageReactionPicker'
@@ -43,13 +43,7 @@ export default function ChatView({
   isConnected
 }: ChatViewProps) {
   const [inputMessage, setInputMessage] = useState('')
-  const messagesEndRef = useRef<HTMLDivElement>(null)
   const { viewTheme } = useViewTheme()
-
-  // Auto-scroll to bottom when new message arrives
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages.length])
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault()
@@ -156,7 +150,6 @@ export default function ChatView({
               ))}
             </AnimatePresence>
           )}
-          <div ref={messagesEndRef} />
         </div>
       </ScrollArea>
 

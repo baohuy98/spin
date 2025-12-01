@@ -14,6 +14,7 @@ import { useSocket } from '../../hooks/useSocket'
 import { useSpinSound } from '../../hooks/useSpinSound'
 import { useMediasoupWebRTC } from '../../hooks/useMediasoupWebRTC'
 import type { Member } from '../../utils/interface/MemberInterface'
+import { generateUserId } from '../../utils/generateUserId'
 import { Volume2, VolumeX, Plus, Trash2, MonitorUp, Eye, EyeOff, X } from 'lucide-react'
 
 interface WheelItem {
@@ -95,6 +96,19 @@ export default function HostPage() {
     return []
   }) // Track all picked members with timestamps
 
+  // Generate unique hostId for this host (persisted in sessionStorage for reconnection)
+  const [hostId] = useState<string>(() => {
+    const stored = sessionStorage.getItem('hostId')
+    if (stored) {
+      console.log('[HostPage] Using existing hostId from sessionStorage:', stored)
+      return stored
+    }
+    const newId = generateUserId()
+    sessionStorage.setItem('hostId', newId)
+    console.log('[HostPage] Generated new hostId:', newId)
+    return newId
+  })
+
   const roomCreatedRef = useRef(false)
   const previewVideoRef = useRef<HTMLVideoElement>(null)
   const addMemberTimeoutRef = useRef<number | null>(null)
@@ -137,10 +151,10 @@ export default function HostPage() {
         try {
           const parsedData = JSON.parse(savedRoomData)
           // If we have saved room data for this host, rooms are now persistent
-          if (parsedData.hostId === hostMember.name) {
+          if (parsedData.hostId === hostId) {
             console.log('[HostPage] Room persists across reloads, creating/rejoining room:', parsedData.roomId)
             // Creating room with same host will reuse existing room (stable room ID)
-            createRoom(hostMember.name, hostMember.name)
+            createRoom(hostId, hostMember.name)
             return
           } else {
             // Different host, clear old data including picked members
@@ -157,8 +171,8 @@ export default function HostPage() {
         }
       }
       // Create new room if no saved data or different host
-      console.log('[HostPage] Creating new room for host:', hostMember.name, hostMember.name)
-      createRoom(hostMember.name, hostMember.name)
+      console.log('[HostPage] Creating new room for host:', hostId, 'name:', hostMember.name)
+      createRoom(hostId, hostMember.name)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConnected, hostMember])
@@ -177,12 +191,13 @@ export default function HostPage() {
       }
 
       // Leave the room
-      leaveRoom(roomData.roomId, hostMember.name)
+      leaveRoom(roomData.roomId, hostId)
 
       // Clear session storage
       sessionStorage.removeItem('roomData')
       sessionStorage.removeItem('roomDataTimestamp')
       sessionStorage.removeItem('pickedMembers')
+      sessionStorage.removeItem('hostId')
 
       // Navigate back to home
       toast.success('Left room successfully')
@@ -567,7 +582,7 @@ export default function HostPage() {
               <LivestreamReactions
                 onSendReaction={(emoji) => {
                   if (roomData?.roomId && hostMember) {
-                    sendLivestreamReaction(roomData.roomId, hostMember.name, hostMember.name, emoji)
+                    sendLivestreamReaction(roomData.roomId, hostId, hostMember.name, emoji)
                   }
                 }}
                 incomingReactions={livestreamReactions}
@@ -578,17 +593,17 @@ export default function HostPage() {
             <div className="w-full mt-6 sm:mt-8">
               <ChatView
                 roomId={roomData?.roomId || null}
-                currentUserId={hostMember?.name || ''}
+                currentUserId={hostId}
                 currentUserName={hostMember?.name || ''}
                 messages={messages}
                 onSendMessage={(message) => {
                   if (roomData?.roomId && hostMember) {
-                    sendChatMessage(roomData.roomId, hostMember.name, hostMember.name, message)
+                    sendChatMessage(roomData.roomId, hostId, hostMember.name, message)
                   }
                 }}
                 onReactToMessage={(messageId, emoji) => {
                   if (roomData?.roomId && hostMember) {
-                    reactToMessage(roomData.roomId, messageId, hostMember.name || '', emoji)
+                    reactToMessage(roomData.roomId, messageId, hostId, emoji)
                   }
                 }}
                 isConnected={isConnected}
