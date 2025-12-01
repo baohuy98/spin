@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
-import { Socket } from 'socket.io-client'
 import { Device, types as MediasoupClientTypes } from 'mediasoup-client'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Socket } from 'socket.io-client'
 
 type Transport = MediasoupClientTypes.Transport
 type Producer = MediasoupClientTypes.Producer
@@ -36,8 +36,6 @@ export function useMediasoupWebRTC({
   const localStreamRef = useRef<MediaStream | null>(null)
   const consumingProducersRef = useRef<Set<string>>(new Set()) // Track producers being consumed
 
-  console.log('remote stream in useMediasoupWebRTC', remoteStream)
-
   // Initialize mediasoup Device and load router RTP capabilities
   useEffect(() => {
     if (!socket || !roomId || !isConnected) return
@@ -69,7 +67,6 @@ export function useMediasoupWebRTC({
         setError('Failed to initialize media device')
       }
     }
-
     initDevice()
   }, [socket, roomId, isHost, isConnected])
 

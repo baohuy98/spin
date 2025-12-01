@@ -17,6 +17,7 @@ interface RoomData {
   hostId: string
   members: string[]
   membersWithDetails?: MemberDetail[]
+  theme?: string
 }
 
 interface SocketError {
@@ -47,7 +48,7 @@ export interface LivestreamReaction {
 }
 
 export function useSocket(options: UseSocketOptions = {}) {
-  const { url = 'http://localhost:3003', autoConnect = true } = options
+  const { url = import.meta.env.VITE_WEBSOCKET_SERVER_URL || 'http://localhost:3003', autoConnect = true } = options
   const socketRef = useRef<Socket | null>(null)
   const [socket, setSocket] = useState<Socket | null>(null)
   const [isConnected, setIsConnected] = useState(false)
@@ -124,7 +125,7 @@ export function useSocket(options: UseSocketOptions = {}) {
           roomId: data.roomId,
           hostId: data.hostId,
           memberCount: data.members.length,
-          theme: data.theme
+          theme: data?.theme
         })
         setRoomData(data)
         sessionStorage.setItem('roomData', JSON.stringify(data))
