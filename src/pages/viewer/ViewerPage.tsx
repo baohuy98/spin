@@ -10,8 +10,8 @@ import { Snowfall } from '../../components/Snowfall'
 import { useTheme } from '../../components/ThemeProvider'
 import { useViewTheme } from '../../components/ViewThemeProvider'
 import { Alert, AlertDescription } from '../../components/ui/alert'
-import { useSocket } from '../../hooks/useSocket'
 import { useMediasoupWebRTC } from '../../hooks/useMediasoupWebRTC'
+import { useSocket } from '../../hooks/useSocket'
 import type { Member } from '../../utils/interface/MemberInterface'
 
 import {
@@ -22,74 +22,23 @@ import {
 export default function ViewerPage() {
     const navigate = useNavigate()
     const location = useLocation()
-    const [searchParams] = useSearchParams()
     const { viewTheme, setViewTheme } = useViewTheme()
     const { theme } = useTheme()
+    const [searchParams] = useSearchParams()
 
-    // Get member from location state (logged-in user data from Home.tsx)
-    const preSelectedMember = (location.state as { member?: Member })?.member
 
-    // Get roomId from URL query parameter, state, or sessionStorage
     const [roomId, setRoomId] = useState<string>(() => {
-        const urlRoomId = searchParams.get('roomId')
-        const stateRoomId = (location.state as { roomId?: string })?.roomId
-        const savedRoomData = sessionStorage.getItem('roomData')
-        let sessionRoomId = ''
-
-        if (savedRoomData) {
-            try {
-                const parsed = JSON.parse(savedRoomData)
-                sessionRoomId = parsed.roomId
-            } catch {
-                // Invalid data
-            }
-        }
-
-        // If we have a URL room ID and it's different from the session room ID,
-        // we should prioritize the URL and clear the stale session data
-        // to prevent useSocket from auto-joining the old room
-        if (urlRoomId && sessionRoomId && urlRoomId !== sessionRoomId) {
-            console.log('[ViewerPage] URL roomId differs from session roomId, clearing stale session data')
-            sessionStorage.removeItem('roomData')
-            sessionStorage.removeItem('roomDataTimestamp')
-            sessionRoomId = ''
-        }
-
-        return urlRoomId || stateRoomId || sessionRoomId || ''
+        return searchParams.get('roomId') || '';
     })
 
-
-    // Use the logged-in member data directly - no lookup in memberList
-    const [viewerMember] = useState<Member | null>(() => {
-        // Priority: 1. Current login data (preSelectedMember), 2. sessionStorage (for page reload)
-        if (preSelectedMember) {
-            // Clear old sessionStorage if we have fresh login data
-            sessionStorage.setItem('viewerMember', JSON.stringify(preSelectedMember))
-            return preSelectedMember
-        }
-
-        // Fallback to sessionStorage for page reload scenario
-        const savedMember = sessionStorage.getItem('viewerMember')
-        if (savedMember) {
-            try {
-                return JSON.parse(savedMember)
-            } catch {
-                return null
-            }
-        }
-        return null
-    })
+    const viewerMember = (location.state as { member?: Member })?.member;
 
     const [hasJoined, setHasJoined] = useState(false)
+    const [spinResult, setSpinResult] = useState<string | null>(null)
+    const [isFullscreen, setIsFullscreen] = useState(false)
 
-    // Save viewer member to sessionStorage when it changes
-    useEffect(() => {
-        if (viewerMember) {
-            sessionStorage.setItem('viewerMember', JSON.stringify(viewerMember))
-        } else {
-            sessionStorage.removeItem('viewerMember')
-        }
-    }, [viewerMember])
+    const videoRef = useRef<HTMLVideoElement>(null)
+    const videoContainerRef = useRef<HTMLDivElement>(null)
 
     // Redirect to home if not logged in, preserving roomId for after login
     useEffect(() => {
@@ -103,15 +52,9 @@ export default function ViewerPage() {
         }
     }, [viewerMember, navigate, roomId])
 
-    const [spinResult, setSpinResult] = useState<string | null>(null)
-    const [isFullscreen, setIsFullscreen] = useState(false)
-
-    const videoRef = useRef<HTMLVideoElement>(null)
-    const videoContainerRef = useRef<HTMLDivElement>(null)
-
     // Socket.io for room management
     const { socket, isConnected, roomData, error, joinRoom, leaveRoom, onSpinResult, isRoomDeleted, isHostDisconnected, messages, sendChatMessage, reactToMessage, livestreamReactions, sendLivestreamReaction } = useSocket()
-    console.log('socket in view page', socket)
+
     // Handle host disconnection/reconnection toasts
     useEffect(() => {
         if (isHostDisconnected) {
@@ -122,10 +65,6 @@ export default function ViewerPage() {
         } else {
             // Dismiss the warning toast if it exists
             toast.dismiss('host-disconnect-toast')
-
-            // If we were previously disconnected (implied by this running when isHostDisconnected becomes false),
-            // we could show a success message, but we need to be careful not to show it on initial load.
-            // For now, the dismissal of the warning is good enough, or we can rely on 'host-reconnected' event.
         }
     }, [isHostDisconnected])
 
@@ -178,12 +117,7 @@ export default function ViewerPage() {
             socket.on('host-reconnected', () => {
                 console.log('[ViewerPage] Host reconnected, WebRTC will be reset')
                 toast.success('Host reconnected!')
-                // WebRTC reset is handled in useWebRTC hook
             })
-
-            return () => {
-                socket.off('host-reconnected')
-            }
         }
     }, [socket])
 
@@ -194,11 +128,8 @@ export default function ViewerPage() {
                 console.log('[ViewerPage] Theme updated by host to:', data.theme)
                 setViewTheme(data.theme as 'none' | 'christmas' | 'lunar-new-year')
             })
-
-            return () => {
-                socket.off('theme-updated')
-            }
         }
+
     }, [socket, setViewTheme])
 
     // Handle room deletion - redirect to homepage
@@ -211,8 +142,6 @@ export default function ViewerPage() {
             // Clear all session storage
             sessionStorage.removeItem('roomData')
             sessionStorage.removeItem('roomDataTimestamp')
-            sessionStorage.removeItem('lastJoinedSocketId')
-            sessionStorage.removeItem('viewerMember')
             // Redirect to home after a short delay
             setTimeout(() => navigate('/'), 2000)
         }
@@ -220,56 +149,14 @@ export default function ViewerPage() {
 
     // Emit room data to App component for Header
     useEffect(() => {
-        console.log("🔍 ViewerPage useEffect triggered", {
-            hasRoomId: !!roomData?.roomId,
-            roomId: roomData?.roomId,
-            viewerMember: viewerMember?.name
-        })
-
-        // If we have roomData, emit it
-        if (roomData?.roomId) {
-            const event = new CustomEvent('roomDataUpdate', {
-                detail: {
-                    roomId: roomData.roomId,
-                    getRoomLink: () => {
-                        if (!roomData?.roomId) return ''
-                        return `${window.location.origin}/viewer?roomId=${roomData.roomId}`
-                    },
-                    onLeave: () => {
-                        if (!roomId || !viewerMember) {
-                            console.log("⚠️ Missing roomId or viewerMember", { roomId, viewerMember })
-                            return
-                        }
-
-                        // Leave the room via socket
-                        leaveRoom(roomId, viewerMember.name)
-
-                        // Clear session storage
-                        sessionStorage.removeItem('roomData')
-                        sessionStorage.removeItem('viewerMember')
-
-                        navigate('/')
-                    },
-                    isHost: false
-                }
-            })
-            window.dispatchEvent(event)
-        }
-        // If we don't have roomData yet but we are on ViewerPage,
-        // we should still emit isHost: false if we can recover the roomId from storage
-        // This handles the case where roomData is still loading but we want the header to show viewer controls
-        else if (roomId && viewerMember) {
-            console.log('[ViewerPage] Emitting initial roomDataUpdate from local state')
+        if (roomId && viewerMember) {
             const event = new CustomEvent('roomDataUpdate', {
                 detail: {
                     roomId: roomId,
-                    getRoomLink: () => `${window.location.origin}/viewer?roomId=${roomId}`,
+                    getRoomLink: () => {
+                        return `${window.location.origin}/viewer?roomId=${roomId}`
+                    },
                     onLeave: () => {
-                        if (!roomId || !viewerMember) {
-                            console.log("⚠️ Missing roomId or viewerMember", { roomId, viewerMember })
-                            return
-                        }
-
                         // Leave the room via socket
                         leaveRoom(roomId, viewerMember.name)
 
@@ -284,7 +171,7 @@ export default function ViewerPage() {
             })
             window.dispatchEvent(event)
         }
-        // leaveRoom and navigate are stable functions and don't need to be in dependencies
+
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [roomData?.roomId, roomId, viewerMember])
 
@@ -335,7 +222,6 @@ export default function ViewerPage() {
             if (error.includes('not found') || error.includes('does not exist')) {
                 toast.error('Room not found. Please check the Room ID.')
                 sessionStorage.removeItem('roomData')
-                sessionStorage.removeItem('viewerMemberId')
                 setHasJoined(false)
                 setRoomId('')
             } else if (error.includes('already taken')) {
@@ -345,8 +231,6 @@ export default function ViewerPage() {
                 // Clear session data
                 sessionStorage.removeItem('roomData')
                 sessionStorage.removeItem('roomDataTimestamp')
-                sessionStorage.removeItem('lastJoinedSocketId')
-                sessionStorage.removeItem('viewerMember')
                 // Redirect to home page after showing error
                 setTimeout(() => {
                     navigate('/', {
@@ -384,7 +268,7 @@ export default function ViewerPage() {
                 </>
             )}
 
-            <div className="container mx-auto px-4 pt-10">
+            <div className="container mx-auto px-4 py-10">
                 <div className="flex flex-col lg:flex-row gap-6">
                     {/* Left Panel - Screen Share */}
                     <div className="flex-1 flex flex-col gap-4">

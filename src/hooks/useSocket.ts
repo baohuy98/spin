@@ -17,6 +17,7 @@ interface RoomData {
   hostId: string
   members: string[]
   membersWithDetails?: MemberDetail[]
+  theme?: string
 }
 
 interface SocketError {
@@ -47,7 +48,7 @@ export interface LivestreamReaction {
 }
 
 export function useSocket(options: UseSocketOptions = {}) {
-  const { url = 'http://localhost:3003', autoConnect = true } = options
+  const { url = import.meta.env.VITE_WEBSOCKET_SERVER_URL || 'http://localhost:3003', autoConnect = true } = options
   const socketRef = useRef<Socket | null>(null)
   const [socket, setSocket] = useState<Socket | null>(null)
   const [isConnected, setIsConnected] = useState(false)
@@ -124,7 +125,7 @@ export function useSocket(options: UseSocketOptions = {}) {
           roomId: data.roomId,
           hostId: data.hostId,
           memberCount: data.members.length,
-          theme: data.theme
+          theme: data?.theme
         })
         setRoomData(data)
         sessionStorage.setItem('roomData', JSON.stringify(data))
@@ -217,7 +218,6 @@ export function useSocket(options: UseSocketOptions = {}) {
         setIsRoomDeleted(true)
         sessionStorage.removeItem('roomData')
         sessionStorage.removeItem('roomDataTimestamp')
-        sessionStorage.removeItem('lastJoinedSocketId')
         toast.error(data.message, { duration: 5000 })
       })
 
@@ -268,41 +268,20 @@ export function useSocket(options: UseSocketOptions = {}) {
     }
   }
 
-  const joinRoom = (roomId: string, memberId: string, name: string, force = false) => {
+  const joinRoom = (roomId: string, memberId: string, name: string) => {
     if (socketRef.current) {
       const joinKey = `${roomId}-${memberId}`
       const currentSocketId = socketRef.current.id
 
       // Check if there's already a pending join request for this room-member combo
-      if (!force && pendingJoinRef.current === joinKey) {
-        console.log('[FE-SOCKET] ⏳ Join already in progress:', { roomId, memberId })
+      if (pendingJoinRef.current === joinKey) {
+        console.log('[useSocket] Join already in progress:', { roomId, memberId })
         return
       }
 
-      // Get the socket ID we last joined with (stored in sessionStorage)
-      const lastJoinedSocketId = sessionStorage.getItem('lastJoinedSocketId')
-
-      // Always rejoin if socket ID changed (page reload scenario)
-      // This ensures backend updates socket mappings and cancels grace period
-      const socketChanged = lastJoinedSocketId !== currentSocketId
-
-      // Check if already in the room (roomData exists and contains this member)
-      // But always rejoin if socket changed to update backend mappings
-      if (!force && !socketChanged && roomData && roomData.roomId === roomId && roomData.members.includes(memberId)) {
-        console.log('[FE-SOCKET] ℹ️  Already in room:', { roomId, memberId })
-        return
-      }
-
-      // Check if already in a different room - leave first
-      if (!force && roomData && roomData.roomId && roomData.roomId !== roomId) {
-        console.log('[FE-SOCKET] 🔄 Leaving previous room before joining new one:', roomData.roomId)
-      }
-
-      console.log('[FE-SOCKET] 📤 Emitting join-room event:', { roomId, memberId, name, socketId: currentSocketId, socketChanged, force })
+      console.log('[useSocket] Attempting to join room:', { roomId, memberId, name, socketId: currentSocketId })
       pendingJoinRef.current = joinKey // Mark as pending
-      if (currentSocketId) {
-        sessionStorage.setItem('lastJoinedSocketId', currentSocketId) // Track this socket
-      }
+
       socketRef.current.emit('join-room', { roomId, memberId, name })
     } else {
       console.error('[FE-SOCKET] ❌ Cannot join room - socket not connected')
@@ -315,7 +294,6 @@ export function useSocket(options: UseSocketOptions = {}) {
       socketRef.current.emit('leave-room', { roomId, memberId })
       pendingJoinRef.current = null
       sessionStorage.removeItem('roomData')
-      sessionStorage.removeItem('lastJoinedSocketId')
     }
   }
 
