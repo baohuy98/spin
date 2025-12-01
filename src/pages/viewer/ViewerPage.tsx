@@ -117,12 +117,7 @@ export default function ViewerPage() {
             socket.on('host-reconnected', () => {
                 console.log('[ViewerPage] Host reconnected, WebRTC will be reset')
                 toast.success('Host reconnected!')
-                // WebRTC reset is handled in useWebRTC hook
             })
-
-            return () => {
-                socket.off('host-reconnected')
-            }
         }
     }, [socket])
 
@@ -133,11 +128,8 @@ export default function ViewerPage() {
                 console.log('[ViewerPage] Theme updated by host to:', data.theme)
                 setViewTheme(data.theme as 'none' | 'christmas' | 'lunar-new-year')
             })
-
-            return () => {
-                socket.off('theme-updated')
-            }
         }
+
     }, [socket, setViewTheme])
 
     // Handle room deletion - redirect to homepage
