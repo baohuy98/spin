@@ -404,32 +404,9 @@ export default function HostPage() {
 
     const visibleItems = items.filter(item => item.visible)
 
-    // Implement weighted random selection to avoid picking recent winners
-    // Items that were recently selected get lower weights
-    const weights = visibleItems.map(item => {
-      const timesInRecent = recentWinners.filter(id => id === item.id).length
-      // Reduce weight exponentially for recent winners
-      // First recent: 0.3x, second recent: 0.1x, third+: 0.05x
-      if (timesInRecent === 0) return 1.0
-      if (timesInRecent === 1) return 0.3
-      if (timesInRecent === 2) return 0.1
-      return 0.05
-    })
-
-    // Calculate total weight
-    const totalWeight = weights.reduce((sum, weight) => sum + weight, 0)
-
-    // Select random item based on weights
-    let random = Math.random() * totalWeight
-    let selectedIndex = 0
-    for (let i = 0; i < weights.length; i++) {
-      random -= weights[i]
-      if (random <= 0) {
-        selectedIndex = i
-        break
-      }
-    }
-
+    // Pure random selection - no weighting, no bias
+    // Every visible item has equal probability of being selected
+    const selectedIndex = Math.floor(Math.random() * visibleItems.length)
     const selectedItem = visibleItems[selectedIndex]
 
     // Update recent winners (keep last 3)
@@ -504,7 +481,7 @@ export default function HostPage() {
 
   return (
     <div
-      className="min-h-screen bg-background pt-16 sm:pt-20 pb-6 sm:pb-10"
+      className="min-h-screen overflow-x-hidden bg-background pt-16 sm:pt-20 pb-6 sm:pb-10"
       style={
         viewTheme === 'christmas' && theme === 'light' ? { backgroundColor: 'lightcoral' } :
           viewTheme === 'lunar-new-year' && theme === 'light' ? { backgroundColor: '#ffebee' } : {}
@@ -525,7 +502,7 @@ export default function HostPage() {
         </>
       )}
 
-      <div className="container mx-auto ">
+      <div className="container mx-auto px-4">
         <div className="flex flex-col lg:flex-row gap-4 sm:gap-8">
           {/* Left Panel - Wheel and Chat */}
           <div className="flex-1 flex flex-col items-center ">
@@ -875,46 +852,46 @@ export default function HostPage() {
         </div>
       </div>
 
-      {/* Result Modal */}
+      {/* Result Modal - Responsive */}
       <AnimatePresence>
         {result && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-3 overflow-y-auto"
             onClick={() => setResult(null)}
           >
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.8, opacity: 0 }}
-              className="bg-card border rounded-2xl p-8 max-w-md w-full shadow-2xl"
+              className="bg-card border rounded-2xl p-4 sm:p-6 md:p-8 w-[calc(100%-1.5rem)] sm:w-full max-w-md my-auto shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="text-center space-y-6">
-                <div className="text-6xl">🎉</div>
-                <h2 className="text-3xl font-bold">Winner!</h2>
-                <div className="text-4xl font-bold text-primary py-6 bg-accent rounded-xl">
+              <div className="text-center space-y-3 sm:space-y-4 md:space-y-6">
+                <div className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl">🎉</div>
+                <h2 className="text-xl sm:text-2xl md:text-3xl font-bold">Winner!</h2>
+                <div className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-primary py-3 sm:py-4 md:py-5 lg:py-6 bg-accent rounded-xl break-words px-2">
                   {result}
                 </div>
-                <div className="flex gap-3">
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                   <button
                     onClick={hideWinner}
-                    className="flex-1 px-6 py-3 bg-orange-500 text-white font-semibold rounded-xl hover:bg-orange-600 transition-colors"
+                    className="w-full sm:flex-1 px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 bg-orange-500 text-white font-semibold text-xs sm:text-sm md:text-base rounded-xl hover:bg-orange-600 transition-colors whitespace-nowrap"
                   >
                     Hide from Next Spin
                   </button>
                   <button
                     onClick={spinAgain}
-                    className="flex-1 px-6 py-3 bg-primary text-primary-foreground font-semibold rounded-xl hover:bg-primary/90 transition-colors"
+                    className="w-full sm:flex-1 px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 bg-primary text-primary-foreground font-semibold text-xs sm:text-sm md:text-base rounded-xl hover:bg-primary/90 transition-colors"
                   >
                     Spin Again
                   </button>
                 </div>
                 <button
                   onClick={() => setResult(null)}
-                  className="text-muted-foreground hover:text-foreground text-sm"
+                  className="text-muted-foreground hover:text-foreground text-xs sm:text-sm mt-2"
                 >
                   Close
                 </button>
