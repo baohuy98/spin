@@ -1,21 +1,21 @@
 import ChatView from '@/components/ChatView'
 import { AnimatePresence, motion } from 'framer-motion'
+import { Eye, EyeOff, MonitorUp, Plus, Trash2, Volume2, VolumeX, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { useTheme } from '../../components/ThemeProvider'
 import LivestreamReactions from '../../components/LivestreamReactions'
+import { LunarNewYearEffect } from '../../components/LunarNewYearEffect'
 import { SantaImage } from '../../components/SantaImage'
 import { Snowfall } from '../../components/Snowfall'
-import { LunarNewYearEffect } from '../../components/LunarNewYearEffect'
-import { useViewTheme } from '../../components/ViewThemeProvider'
 import SpinWheel from '../../components/SpinWheel'
+import { useTheme } from '../../components/ThemeProvider'
+import { useViewTheme } from '../../components/ViewThemeProvider'
+import { useMediasoupWebRTC } from '../../hooks/useMediasoupWebRTC'
 import { useSocket } from '../../hooks/useSocket'
 import { useSpinSound } from '../../hooks/useSpinSound'
-import { useMediasoupWebRTC } from '../../hooks/useMediasoupWebRTC'
-import type { Member } from '../../utils/interface/MemberInterface'
 import { generateUserId } from '../../utils/generateUserId'
-import { Volume2, VolumeX, Plus, Trash2, MonitorUp, Eye, EyeOff, X } from 'lucide-react'
+import type { Member } from '../../utils/interface/MemberInterface'
 
 interface WheelItem {
   id: string
@@ -585,6 +585,7 @@ export default function HostPage() {
                     sendLivestreamReaction(roomData.roomId, hostId, hostMember.name, emoji)
                   }
                 }}
+                isHost
                 incomingReactions={livestreamReactions}
               />
             </div>

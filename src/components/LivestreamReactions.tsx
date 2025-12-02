@@ -7,9 +7,10 @@ const REACTION_EMOJIS = ['❤️', '👍', '🔥', '😂', '😮', '👏', '🎉
 interface LivestreamReactionsProps {
     onSendReaction: (emoji: string) => void
     incomingReactions: LivestreamReaction[]
+    isHost?: boolean
 }
 
-export default function LivestreamReactions({ onSendReaction, incomingReactions }: LivestreamReactionsProps) {
+export default function LivestreamReactions({ onSendReaction, incomingReactions, isHost }: LivestreamReactionsProps) {
     const [completedIds, setCompletedIds] = useState<Set<string>>(new Set())
 
     // Filter out completed reactions
@@ -41,18 +42,23 @@ export default function LivestreamReactions({ onSendReaction, incomingReactions 
             </div>
 
             {/* Reaction Buttons - Bottom Right */}
-            <div className="absolute bottom-4 left-4 flex flex-row gap-2 pointer-events-auto md:opacity-0 group-hover:opacity-100 transition-opacity">
-                {emojis.map(emoji => (
-                    <button
-                        key={emoji}
-                        onClick={() => onSendReaction(emoji)}
-                        className="md:w-12 md:h-12 w-8 h-8 md:text-2xl text-lg bg-black/40 hover:bg-black/60 backdrop-blur-sm rounded-full flex items-center justify-center  transition-all hover:scale-110 active:scale-95"
-                        title={`Send ${emoji} reaction`}
-                    >
-                        {emoji}
-                    </button>
-                ))}
-            </div>
+            {
+                !isHost && (
+                    <div className="absolute bottom-4 left-4 flex flex-row gap-2 pointer-events-auto md:opacity-0 group-hover:opacity-100 transition-opacity">
+                        {emojis.map(emoji => (
+                            <button
+                                key={emoji}
+                                onClick={() => onSendReaction(emoji)}
+                                className="md:w-12 md:h-12 w-8 h-8 md:text-2xl text-lg bg-black/40 hover:bg-black/60 backdrop-blur-sm rounded-full flex items-center justify-center  transition-all hover:scale-110 active:scale-95"
+                                title={`Send ${emoji} reaction`}
+                            >
+                                {emoji}
+                            </button>
+                        ))}
+                    </div>
+                )
+            }
+
         </div>
     )
 }
