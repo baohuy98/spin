@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import { isMobile } from 'react-device-detect';
 import type { LivestreamReaction } from '../hooks/useSocket';
 import FloatingReaction from './FloatingReaction';
 
@@ -22,6 +21,8 @@ export default function LivestreamReactions({ onSendReaction, incomingReactions 
         setCompletedIds(prev => new Set(prev).add(id))
     }
 
+    // Check if mobile based on screen width (768px = Tailwind md breakpoint)
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
     const emojis = isMobile ? REACTION_EMOJIS.slice(0, 3) : REACTION_EMOJIS;
 
     return (
