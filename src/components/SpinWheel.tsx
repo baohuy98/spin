@@ -121,11 +121,21 @@ export default function SpinWheel({ items, isSpinning, spinDuration, rotation }:
             const largeArc = segmentAngle > 180 ? 1 : 0
             const path = `M 250 250 L ${x1} ${y1} A 240 240 0 ${largeArc} 1 ${x2} ${y2} Z`
 
-            // Calculate text position
-            const textRadius = 160
+            // Calculate text position - positioned further out for vertical text
+            const textRadius = 150
             const textX = 250 + textRadius * Math.cos(midAngle)
             const textY = 250 + textRadius * Math.sin(midAngle)
-            const textAngle = (midAngle * 180) / Math.PI + 90
+            // Rotate text to be vertical (along the radius)
+            const textAngle = (midAngle * 180) / Math.PI
+
+            // Create clip path to hide overflow near center (within radius 60 to avoid SPIN button)
+            const clipPathId = `clip-${item.id}`
+
+            // Truncate text if too long - max character length based on available space
+            const maxLength = 15
+            const displayText = item.text.length > maxLength
+              ? item.text.substring(0, maxLength) + '...'
+              : item.text
 
             return (
               <g key={item.id}>
@@ -137,7 +147,15 @@ export default function SpinWheel({ items, isSpinning, spinDuration, rotation }:
                   strokeWidth="2"
                 />
 
-                {/* Text */}
+                {/* Clip path to hide text overflow near center */}
+                <defs>
+                  <clipPath id={clipPathId}>
+                    <path d={path} />
+                    <circle cx="250" cy="250" r="60" fill="black" />
+                  </clipPath>
+                </defs>
+
+                {/* Text - vertical orientation */}
                 <text
                   x={textX}
                   y={textY}
@@ -147,12 +165,13 @@ export default function SpinWheel({ items, isSpinning, spinDuration, rotation }:
                   textAnchor="middle"
                   dominantBaseline="middle"
                   transform={`rotate(${textAngle}, ${textX}, ${textY})`}
+                  clipPath={`url(#${clipPathId})`}
                   className="pointer-events-none select-none"
                   style={{
                     textShadow: '2px 2px 4px rgba(0,0,0,0.5)'
                   }}
                 >
-                  {item.text}
+                  {displayText}
                 </text>
               </g>
             )

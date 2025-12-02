@@ -440,14 +440,14 @@ export default function ViewerPage() {
             <Dialog open={!!spinResult} onOpenChange={() => {
                 setSpinResult(null)
             }}>
-                <DialogContent className="sm:max-w-md">
-                    <div className="text-center space-y-4">
-                        <div className="text-6xl">🎊</div>
-                        <h2 className="text-3xl font-bold text-gray-800">Winner Announced!</h2>
-                        <div className="text-4xl font-bold text-purple-600 py-6 bg-purple-100 rounded-xl px-8">
+                <DialogContent className="sm:max-w-md p-4 sm:p-6">
+                    <div className="text-center space-y-3 sm:space-y-4">
+                        <div className="text-4xl sm:text-5xl md:text-6xl">🎊</div>
+                        <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800 dark:text-gray-100">Winner Announced!</h2>
+                        <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-purple-600 dark:text-purple-400 py-4 sm:py-5 md:py-6 bg-purple-100 dark:bg-purple-900/30 rounded-xl px-4 sm:px-6 md:px-8 break-words">
                             {spinResult}
                         </div>
-                        <p className="text-gray-500 text-sm">This message will disappear in 5 seconds</p>
+                        <p className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm">This message will disappear in 5 seconds</p>
                     </div>
                 </DialogContent>
             </Dialog>
