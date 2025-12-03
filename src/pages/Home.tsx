@@ -12,6 +12,7 @@ export default function Home() {
   const [name, setName] = useState('');
   const [roomID, setRoomID] = useState('');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userChoice, setUserChoice] = useState<'host' | 'join' | null>(null);
   const [pendingRoomId, setPendingRoomId] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
@@ -74,15 +75,22 @@ export default function Home() {
     localStorage.removeItem('loggedInUser');
     setIsLoggedIn(false);
     setName('');
+    setUserChoice(null);
+    setRoomID('');
   };
 
   const handleHostRoom = () => {
-    if (!isLoggedIn) {
-      alert('Please login first');
-      return;
-    }
     const member = { name: name.trim() };
     navigate('/host', { state: { member } });
+  };
+
+  const handleChooseHost = () => {
+    setUserChoice('host');
+    handleHostRoom();
+  };
+
+  const handleChooseJoin = () => {
+    setUserChoice('join');
   };
 
   const handleJoinRoom = () => {
@@ -142,11 +150,37 @@ export default function Home() {
                 Join
               </button>
             </div>
-          ) : (
+          ) : userChoice === null ? (
+            <>
+              <div className="text-center mb-4">
+                <p className="text-white text-lg font-semibold">Choose your action</p>
+              </div>
+              <div className="space-y-3">
+                <button
+                  onClick={handleChooseHost}
+                  className="w-full px-6 py-4 bg-purple-600 text-white font-bold text-lg rounded-xl hover:bg-purple-700 transition-all hover:scale-105 shadow-lg"
+                >
+                  Host Room
+                </button>
+                <button
+                  onClick={handleChooseJoin}
+                  className="w-full px-6 py-4 bg-white text-purple-600 font-bold text-lg rounded-xl hover:bg-gray-100 transition-all hover:scale-105 shadow-lg"
+                >
+                  Join Room
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="w-full px-6 py-4 bg-red-500 text-white font-bold text-lg rounded-xl hover:bg-red-600 transition-all hover:scale-105 shadow-lg"
+                >
+                  Leave
+                </button>
+              </div>
+            </>
+          ) : userChoice === 'join' ? (
             <>
               <div className="space-y-2">
                 <label htmlFor="roomID" className="text-white font-semibold text-sm block">
-                  Room ID <span className="text-white/60 text-xs">(for joining)</span>
+                  Room ID <span className="text-red-400">*</span>
                 </label>
                 <input
                   id="roomID"
@@ -160,26 +194,21 @@ export default function Home() {
               </div>
               <div className="space-y-3">
                 <button
-                  onClick={handleHostRoom}
-                  className="w-full px-6 py-4 bg-purple-600 text-white font-bold text-lg rounded-xl hover:bg-purple-700 transition-all hover:scale-105 shadow-lg"
-                >
-                  Host Room
-                </button>
-                <button
                   onClick={handleJoinRoom}
-                  className="w-full px-6 py-4 bg-white text-purple-600 font-bold text-lg rounded-xl hover:bg-gray-100 transition-all hover:scale-105 shadow-lg"
+                  className="w-full px-6 py-4 bg-green-500 text-white font-bold text-lg rounded-xl hover:bg-green-600 transition-all hover:scale-105 shadow-lg"
                 >
                   Join Room
                 </button>
                 <button
-                  onClick={handleLogout}
-                  className="w-full px-6 py-4 bg-red-500 text-white font-bold text-lg rounded-xl hover:bg-red-600 transition-all hover:scale-105 shadow-lg"
+                  onClick={() => setUserChoice(null)}
+                  className="w-full px-6 py-4 bg-gray-500 text-white font-bold text-lg rounded-xl hover:bg-gray-600 transition-all hover:scale-105 shadow-lg"
                 >
-                  Leave
+                  Back
                 </button>
+
               </div>
             </>
-          )}
+          ) : null}
         </div>
       </div>
     </div>

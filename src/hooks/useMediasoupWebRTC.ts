@@ -444,12 +444,29 @@ export function useMediasoupWebRTC({
     }
 
     try {
+      // Request screen share with system audio
+      // NOTE: To capture audio from the current page (spin sounds):
+      // - Select "Share this tab" when prompted
+      // - Make sure "Share tab audio" checkbox is checked
+      // This will capture both the visual content and audio from this tab
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: {
           displaySurface: 'monitor',
         },
-        audio: false,
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          sampleRate: 44100,
+        },
       })
+
+      // Check if audio track was captured
+      const audioTrack = stream.getAudioTracks()[0]
+      if (audioTrack) {
+        console.log('[Mediasoup] Audio track captured successfully:', audioTrack.label)
+      } else {
+        console.warn('[Mediasoup] No audio track - make sure to share tab audio when prompted')
+      }
 
       localStreamRef.current = stream
       setLocalStream(stream)
