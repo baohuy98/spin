@@ -71,7 +71,7 @@ export default function HostPage() {
   const [spinDuration, setSpinDuration] = useState(4)
   const [rotation, setRotation] = useState(0)
   const [soundEnabled, setSoundEnabled] = useState(true)
-  const [recentWinners, setRecentWinners] = useState<string[]>([]) // Track recent winners for fairer selection
+  const [, setRecentWinners] = useState<string[]>([]) // Track recent winners for fairer selection
   const [manualMembers, setManualMembers] = useState<WheelItem[]>([]) // Manually added members (not in room)
   const [manualMemberName, setManualMemberName] = useState('')
   const [pickedMembers, setPickedMembers] = useState<Array<{ name: string; timestamp: Date }>>(() => {
