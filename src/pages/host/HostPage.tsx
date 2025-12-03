@@ -1,20 +1,21 @@
 import ChatView from '@/components/ChatView'
 import { AnimatePresence, motion } from 'framer-motion'
+import { Eye, EyeOff, MonitorUp, Plus, Trash2, Volume2, VolumeX, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { useTheme } from '../../components/ThemeProvider'
 import LivestreamReactions from '../../components/LivestreamReactions'
+import { LunarNewYearEffect } from '../../components/LunarNewYearEffect'
 import { SantaImage } from '../../components/SantaImage'
 import { Snowfall } from '../../components/Snowfall'
-import { LunarNewYearEffect } from '../../components/LunarNewYearEffect'
-import { useViewTheme } from '../../components/ViewThemeProvider'
 import SpinWheel from '../../components/SpinWheel'
+import { useTheme } from '../../components/ThemeProvider'
+import { useViewTheme } from '../../components/ViewThemeProvider'
+import { useMediasoupWebRTC } from '../../hooks/useMediasoupWebRTC'
 import { useSocket } from '../../hooks/useSocket'
 import { useSpinSound } from '../../hooks/useSpinSound'
-import { useMediasoupWebRTC } from '../../hooks/useMediasoupWebRTC'
+import { generateUserId } from '../../utils/generateUserId'
 import type { Member } from '../../utils/interface/MemberInterface'
-import { Volume2, VolumeX, Plus, Trash2, MonitorUp, Eye, EyeOff, X } from 'lucide-react'
 
 interface WheelItem {
   id: string
@@ -95,6 +96,19 @@ export default function HostPage() {
     return []
   }) // Track all picked members with timestamps
 
+  // Generate unique hostId for this host (persisted in sessionStorage for reconnection)
+  const [hostId] = useState<string>(() => {
+    const stored = sessionStorage.getItem('hostId')
+    if (stored) {
+      console.log('[HostPage] Using existing hostId from sessionStorage:', stored)
+      return stored
+    }
+    const newId = generateUserId()
+    sessionStorage.setItem('hostId', newId)
+    console.log('[HostPage] Generated new hostId:', newId)
+    return newId
+  })
+
   const roomCreatedRef = useRef(false)
   const previewVideoRef = useRef<HTMLVideoElement>(null)
   const addMemberTimeoutRef = useRef<number | null>(null)
@@ -137,10 +151,10 @@ export default function HostPage() {
         try {
           const parsedData = JSON.parse(savedRoomData)
           // If we have saved room data for this host, rooms are now persistent
-          if (parsedData.hostId === hostMember.name) {
+          if (parsedData.hostId === hostId) {
             console.log('[HostPage] Room persists across reloads, creating/rejoining room:', parsedData.roomId)
             // Creating room with same host will reuse existing room (stable room ID)
-            createRoom(hostMember.name, hostMember.name)
+            createRoom(hostId, hostMember.name)
             return
           } else {
             // Different host, clear old data including picked members
@@ -157,8 +171,8 @@ export default function HostPage() {
         }
       }
       // Create new room if no saved data or different host
-      console.log('[HostPage] Creating new room for host:', hostMember.name, hostMember.name)
-      createRoom(hostMember.name, hostMember.name)
+      console.log('[HostPage] Creating new room for host:', hostId, 'name:', hostMember.name)
+      createRoom(hostId, hostMember.name)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConnected, hostMember])
@@ -177,12 +191,13 @@ export default function HostPage() {
       }
 
       // Leave the room
-      leaveRoom(roomData.roomId, hostMember.name)
+      leaveRoom(roomData.roomId, hostId)
 
       // Clear session storage
       sessionStorage.removeItem('roomData')
       sessionStorage.removeItem('roomDataTimestamp')
       sessionStorage.removeItem('pickedMembers')
+      sessionStorage.removeItem('hostId')
 
       // Navigate back to home
       toast.success('Left room successfully')
@@ -329,6 +344,12 @@ export default function HostPage() {
   }
 
   const addManualMember = () => {
+    // Prevent adding members while wheel is spinning
+    if (isSpinning) {
+      toast.error('Cannot add members while wheel is spinning')
+      return
+    }
+
     // Debounce to prevent duplicate calls
     if (addMemberTimeoutRef.current) {
       console.log('[addManualMember] Debounced - ignoring duplicate call')
@@ -389,32 +410,9 @@ export default function HostPage() {
 
     const visibleItems = items.filter(item => item.visible)
 
-    // Implement weighted random selection to avoid picking recent winners
-    // Items that were recently selected get lower weights
-    const weights = visibleItems.map(item => {
-      const timesInRecent = recentWinners.filter(id => id === item.id).length
-      // Reduce weight exponentially for recent winners
-      // First recent: 0.3x, second recent: 0.1x, third+: 0.05x
-      if (timesInRecent === 0) return 1.0
-      if (timesInRecent === 1) return 0.3
-      if (timesInRecent === 2) return 0.1
-      return 0.05
-    })
-
-    // Calculate total weight
-    const totalWeight = weights.reduce((sum, weight) => sum + weight, 0)
-
-    // Select random item based on weights
-    let random = Math.random() * totalWeight
-    let selectedIndex = 0
-    for (let i = 0; i < weights.length; i++) {
-      random -= weights[i]
-      if (random <= 0) {
-        selectedIndex = i
-        break
-      }
-    }
-
+    // Pure random selection - no weighting, no bias
+    // Every visible item has equal probability of being selected
+    const selectedIndex = Math.floor(Math.random() * visibleItems.length)
     const selectedItem = visibleItems[selectedIndex]
 
     // Update recent winners (keep last 3)
@@ -489,7 +487,7 @@ export default function HostPage() {
 
   return (
     <div
-      className="min-h-screen bg-background pt-16 sm:pt-20 pb-6 sm:pb-10"
+      className="min-h-screen overflow-x-hidden bg-background pt-16 sm:pt-20 pb-6 sm:pb-10"
       style={
         viewTheme === 'christmas' && theme === 'light' ? { backgroundColor: 'lightcoral' } :
           viewTheme === 'lunar-new-year' && theme === 'light' ? { backgroundColor: '#ffebee' } : {}
@@ -510,7 +508,7 @@ export default function HostPage() {
         </>
       )}
 
-      <div className="container mx-auto ">
+      <div className="container mx-auto px-4">
         <div className="flex flex-col lg:flex-row gap-4 sm:gap-8">
           {/* Left Panel - Wheel and Chat */}
           <div className="flex-1 flex flex-col items-center ">
@@ -567,9 +565,10 @@ export default function HostPage() {
               <LivestreamReactions
                 onSendReaction={(emoji) => {
                   if (roomData?.roomId && hostMember) {
-                    sendLivestreamReaction(roomData.roomId, hostMember.name, hostMember.name, emoji)
+                    sendLivestreamReaction(roomData.roomId, hostId, hostMember.name, emoji)
                   }
                 }}
+                isHost
                 incomingReactions={livestreamReactions}
               />
             </div>
@@ -578,17 +577,17 @@ export default function HostPage() {
             <div className="w-full mt-6 sm:mt-8">
               <ChatView
                 roomId={roomData?.roomId || null}
-                currentUserId={hostMember?.name || ''}
+                currentUserId={hostId}
                 currentUserName={hostMember?.name || ''}
                 messages={messages}
                 onSendMessage={(message) => {
                   if (roomData?.roomId && hostMember) {
-                    sendChatMessage(roomData.roomId, hostMember.name, hostMember.name, message)
+                    sendChatMessage(roomData.roomId, hostId, hostMember.name, message)
                   }
                 }}
                 onReactToMessage={(messageId, emoji) => {
                   if (roomData?.roomId && hostMember) {
-                    reactToMessage(roomData.roomId, messageId, hostMember.name || '', emoji)
+                    reactToMessage(roomData.roomId, messageId, hostId, emoji)
                   }
                 }}
                 isConnected={isConnected}
@@ -753,13 +752,15 @@ export default function HostPage() {
                       }
                     }}
                     placeholder="Enter name..."
-                    className="flex-1 px-3 py-2 rounded-lg bg-background border text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    disabled={isSpinning}
+                    className="flex-1 px-3 py-2 rounded-lg bg-background border text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                   <button
                     onClick={addManualMember}
                     type="button"
-                    className="p-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-                    title="Add member"
+                    disabled={isSpinning}
+                    className="p-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-primary"
+                    title={isSpinning ? "Cannot add while spinning" : "Add member"}
                   >
                     <Plus className="w-5 h-5" />
                   </button>
@@ -860,46 +861,46 @@ export default function HostPage() {
         </div>
       </div>
 
-      {/* Result Modal */}
+      {/* Result Modal - Responsive */}
       <AnimatePresence>
         {result && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-3 overflow-y-auto"
             onClick={() => setResult(null)}
           >
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.8, opacity: 0 }}
-              className="bg-card border rounded-2xl p-8 max-w-md w-full shadow-2xl"
+              className="bg-card border rounded-2xl p-4 sm:p-6 md:p-8 w-[calc(100%-1.5rem)] sm:w-full max-w-md my-auto shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="text-center space-y-6">
-                <div className="text-6xl">🎉</div>
-                <h2 className="text-3xl font-bold">Winner!</h2>
-                <div className="text-4xl font-bold text-primary py-6 bg-accent rounded-xl">
+              <div className="text-center space-y-3 sm:space-y-4 md:space-y-6">
+                <div className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl">🎉</div>
+                <h2 className="text-xl sm:text-2xl md:text-3xl font-bold">Winner!</h2>
+                <div className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-primary py-3 sm:py-4 md:py-5 lg:py-6 bg-accent rounded-xl break-words px-2">
                   {result}
                 </div>
-                <div className="flex gap-3">
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                   <button
                     onClick={hideWinner}
-                    className="flex-1 px-6 py-3 bg-orange-500 text-white font-semibold rounded-xl hover:bg-orange-600 transition-colors"
+                    className="w-full sm:flex-1 px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 bg-orange-500 text-white font-semibold text-xs sm:text-sm md:text-base rounded-xl hover:bg-orange-600 transition-colors whitespace-nowrap"
                   >
                     Hide from Next Spin
                   </button>
                   <button
                     onClick={spinAgain}
-                    className="flex-1 px-6 py-3 bg-primary text-primary-foreground font-semibold rounded-xl hover:bg-primary/90 transition-colors"
+                    className="w-full sm:flex-1 px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 bg-primary text-primary-foreground font-semibold text-xs sm:text-sm md:text-base rounded-xl hover:bg-primary/90 transition-colors"
                   >
                     Spin Again
                   </button>
                 </div>
                 <button
                   onClick={() => setResult(null)}
-                  className="text-muted-foreground hover:text-foreground text-sm"
+                  className="text-muted-foreground hover:text-foreground text-xs sm:text-sm mt-2"
                 >
                   Close
                 </button>

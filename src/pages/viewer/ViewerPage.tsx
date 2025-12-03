@@ -13,6 +13,7 @@ import { Alert, AlertDescription } from '../../components/ui/alert'
 import { useMediasoupWebRTC } from '../../hooks/useMediasoupWebRTC'
 import { useSocket } from '../../hooks/useSocket'
 import type { Member } from '../../utils/interface/MemberInterface'
+import { generateUserId } from '../../utils/generateUserId'
 
 import {
     Dialog,
@@ -32,6 +33,19 @@ export default function ViewerPage() {
     })
 
     const viewerMember = (location.state as { member?: Member })?.member;
+
+    // Generate unique memberId for this viewer (persisted in sessionStorage for reconnection)
+    const [memberId] = useState<string>(() => {
+        const stored = sessionStorage.getItem('viewerMemberId')
+        if (stored) {
+            console.log('[ViewerPage] Using existing memberId from sessionStorage:', stored)
+            return stored
+        }
+        const newId = generateUserId()
+        sessionStorage.setItem('viewerMemberId', newId)
+        console.log('[ViewerPage] Generated new memberId:', newId)
+        return newId
+    })
 
     const [hasJoined, setHasJoined] = useState(false)
     const [spinResult, setSpinResult] = useState<string | null>(null)
@@ -90,8 +104,8 @@ export default function ViewerPage() {
 
     useEffect(() => {
         if (isConnected && roomId && viewerMember && !hasJoined) {
-            console.log('[ViewerPage] Auto-joining room:', roomId, 'with member:', viewerMember.name, viewerMember.name)
-            joinRoom(roomId, viewerMember.name, viewerMember.name)
+            console.log('[ViewerPage] Auto-joining room:', roomId, 'with memberId:', memberId, 'name:', viewerMember.name)
+            joinRoom(roomId, memberId, viewerMember.name)
             setHasJoined(true)
         }
     }, [isConnected, roomId, viewerMember, hasJoined, joinRoom])
@@ -158,11 +172,12 @@ export default function ViewerPage() {
                     },
                     onLeave: () => {
                         // Leave the room via socket
-                        leaveRoom(roomId, viewerMember.name)
+                        leaveRoom(roomId, memberId)
 
                         // Clear session storage
                         sessionStorage.removeItem('roomData')
                         sessionStorage.removeItem('viewerMember')
+                        sessionStorage.removeItem('viewerMemberId')
 
                         navigate('/')
                     },
@@ -231,6 +246,7 @@ export default function ViewerPage() {
                 // Clear session data
                 sessionStorage.removeItem('roomData')
                 sessionStorage.removeItem('roomDataTimestamp')
+                sessionStorage.removeItem('viewerMemberId')
                 // Redirect to home page after showing error
                 setTimeout(() => {
                     navigate('/', {
@@ -354,7 +370,7 @@ export default function ViewerPage() {
                                         <LivestreamReactions
                                             onSendReaction={(emoji) => {
                                                 if (roomId && viewerMember) {
-                                                    sendLivestreamReaction(roomId, viewerMember.name, viewerMember.name, emoji)
+                                                    sendLivestreamReaction(roomId, memberId, viewerMember.name, emoji)
                                                 }
                                             }}
                                             incomingReactions={livestreamReactions}
@@ -402,17 +418,17 @@ export default function ViewerPage() {
                         {/* Chat & Comments */}
                         <ChatView
                             roomId={roomId}
-                            currentUserId={viewerMember?.name || ''}
+                            currentUserId={memberId}
                             currentUserName={viewerMember?.name || ''}
                             messages={messages}
                             onSendMessage={(message) => {
                                 if (roomId) {
-                                    sendChatMessage(roomId, viewerMember?.name || '', viewerMember?.name || '', message)
+                                    sendChatMessage(roomId, memberId, viewerMember?.name || '', message)
                                 }
                             }}
                             onReactToMessage={(messageId, emoji) => {
                                 if (roomId) {
-                                    reactToMessage(roomId, messageId, viewerMember?.name || '', emoji)
+                                    reactToMessage(roomId, messageId, memberId, emoji)
                                 }
                             }}
                             isConnected={isConnected}
@@ -424,14 +440,14 @@ export default function ViewerPage() {
             <Dialog open={!!spinResult} onOpenChange={() => {
                 setSpinResult(null)
             }}>
-                <DialogContent className="sm:max-w-md">
-                    <div className="text-center space-y-4">
-                        <div className="text-6xl">🎊</div>
-                        <h2 className="text-3xl font-bold text-gray-800">Winner Announced!</h2>
-                        <div className="text-4xl font-bold text-purple-600 py-6 bg-purple-100 rounded-xl px-8">
+                <DialogContent className="sm:max-w-md p-4 sm:p-6">
+                    <div className="text-center space-y-3 sm:space-y-4">
+                        <div className="text-4xl sm:text-5xl md:text-6xl">🎊</div>
+                        <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800 dark:text-gray-100">Winner Announced!</h2>
+                        <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-purple-600 dark:text-purple-400 py-4 sm:py-5 md:py-6 bg-purple-100 dark:bg-purple-900/30 rounded-xl px-4 sm:px-6 md:px-8 break-words">
                             {spinResult}
                         </div>
-                        <p className="text-gray-500 text-sm">This message will disappear in 5 seconds</p>
+                        <p className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm">This message will disappear in 5 seconds</p>
                     </div>
                 </DialogContent>
             </Dialog>
