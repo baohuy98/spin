@@ -344,6 +344,12 @@ export default function HostPage() {
   }
 
   const addManualMember = () => {
+    // Prevent adding members while wheel is spinning
+    if (isSpinning) {
+      toast.error('Cannot add members while wheel is spinning')
+      return
+    }
+
     // Debounce to prevent duplicate calls
     if (addMemberTimeoutRef.current) {
       console.log('[addManualMember] Debounced - ignoring duplicate call')
@@ -746,13 +752,15 @@ export default function HostPage() {
                       }
                     }}
                     placeholder="Enter name..."
-                    className="flex-1 px-3 py-2 rounded-lg bg-background border text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    disabled={isSpinning}
+                    className="flex-1 px-3 py-2 rounded-lg bg-background border text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                   <button
                     onClick={addManualMember}
                     type="button"
-                    className="p-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-                    title="Add member"
+                    disabled={isSpinning}
+                    className="p-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-primary"
+                    title={isSpinning ? "Cannot add while spinning" : "Add member"}
                   >
                     <Plus className="w-5 h-5" />
                   </button>
